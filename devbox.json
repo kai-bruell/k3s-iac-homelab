@@ -1,0 +1,14 @@
+{
+  "packages": [
+    "terraform",
+    "butane@0.25.1"
+  ],
+  "shell": {
+    "init_hook": [
+      "bash $PWD/devbox.sh"
+    ]
+  },
+  "env": {
+    "LIBVIRT_DEFAULT_URI": "qemu:///system"
+  }
+}

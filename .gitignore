@@ -1,0 +1,9 @@
+# Devbox
+.devbox/
+devbox.lock
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
