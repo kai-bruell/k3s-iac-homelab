@@ -1,0 +1,121 @@
+variant: flatcar
+version: 1.1.0
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys: ${ssh_keys}
+
+storage:
+  directories:
+    - path: /opt/bin
+      mode: 0755
+    - path: /etc/rancher/k3s
+      mode: 0755
+    - path: /var/lib/rancher/k3s/server/manifests
+      mode: 0755
+
+  files:
+    # k3s Installation Script
+    - path: /opt/install-k3s.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/bin/bash
+          set -euo pipefail
+
+          # Download k3s installer
+          curl -sfL https://get.k3s.io -o /tmp/k3s-install.sh
+          chmod +x /tmp/k3s-install.sh
+
+          # Install k3s server
+          %{if k3s_server_url != ""}
+          # Additional server node (HA setup)
+          K3S_TOKEN="${k3s_token}" \
+          K3S_URL="${k3s_server_url}" \
+          INSTALL_K3S_EXEC="server \
+            --disable traefik \
+            --disable servicelb \
+            --write-kubeconfig-mode=644 \
+            --node-label node-type=server \
+            --flannel-backend=host-gw" \
+          /tmp/k3s-install.sh
+          %{else}
+          # First server node
+          K3S_TOKEN="${k3s_token}" \
+          INSTALL_K3S_EXEC="server \
+            --cluster-init \
+            --disable traefik \
+            --disable servicelb \
+            --write-kubeconfig-mode=644 \
+            --node-label node-type=server \
+            --flannel-backend=host-gw" \
+          /tmp/k3s-install.sh
+          %{endif}
+
+          # Wait for k3s to be ready
+          until kubectl get nodes; do
+            echo "Waiting for k3s to be ready..."
+            sleep 5
+          done
+
+          echo "k3s server installed successfully!"
+
+    # Hostname setzen
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: ${hostname}
+
+systemd:
+  units:
+    # k3s Installation als oneshot Service
+    - name: install-k3s.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Install k3s
+        After=network-online.target
+        Wants=network-online.target
+        ConditionPathExists=!/usr/local/bin/k3s
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/opt/install-k3s.sh
+        StandardOutput=journal
+        StandardError=journal
+
+        [Install]
+        WantedBy=multi-user.target
+
+    # Automatische Updates für Flatcar
+    - name: locksmithd.service
+      enabled: true
+      dropins:
+        - name: 40-strategy.conf
+          contents: |
+            [Service]
+            Environment="REBOOT_STRATEGY=reboot"
+
+    # Update Engine aktivieren
+    - name: update-engine.service
+      enabled: true
+
+    # Zeitzone setzen
+    - name: set-timezone.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Set timezone
+        After=network-online.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/bin/timedatectl set-timezone Europe/Berlin
+        RemainAfterExit=yes
+
+        [Install]
+        WantedBy=multi-user.target
+
+${extra_config}

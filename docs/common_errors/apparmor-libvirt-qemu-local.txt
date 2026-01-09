@@ -1,0 +1,3 @@
+# Custom storage pool for k3s-dev cluster
+# Allow QEMU to access disk images in the k3s-dev pool
+/var/lib/libvirt/images/k3s-dev/** rwk,
