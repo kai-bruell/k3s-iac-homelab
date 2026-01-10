@@ -181,3 +181,10 @@ chmod +x setup-apparmor.sh
 - Ubuntu Bug #1704782: https://bugs.launchpad.net/ubuntu/+source/libvirt/+bug/1704782
 - libvirt Security with AppArmor: https://libvirt.org/drvqemu.html#security-apparmor
 - libvirt Storage Pools: https://libvirt.org/storage.html
+
+
+
+
+ATTENTION!!! Du musst in /etc/libvirt/qemu.conf user und group auf root setzen... das ist nur ein temporärer fix. Eigentlich ist es ein Securtiy Risk... und das muss man noch richtig machen... außerdem habe ich eh noch vor den terraform libvirt provider auf die neue Version zu migrieren... UND: libvirt in die Devbox installieren und konfigurieren... Das könnte noch ein harter Pain werden... aber das bekomme ich schon hin! Das bekomme ich hin!
+
+
