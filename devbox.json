@@ -1,7 +1,8 @@
 {
   "packages": [
-    "terraform",
-    "butane@0.25.1"
+    "terraform@1.14.3",
+    "butane@0.25.1",
+    "fluxcd@2.7.5"
   ],
   "shell": {
     "init_hook": [
