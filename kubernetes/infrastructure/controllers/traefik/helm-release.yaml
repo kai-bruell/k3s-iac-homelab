@@ -1,0 +1,77 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+  namespace: traefik-system
+spec:
+  interval: 30m
+  chart:
+    spec:
+      chart: traefik
+      version: "32.x"  # Automatische Updates innerhalb v32
+      sourceRef:
+        kind: HelmRepository
+        name: traefik
+        namespace: traefik-system
+      interval: 12h
+
+  install:
+    remediation:
+      retries: 3
+
+  upgrade:
+    remediation:
+      retries: 3
+
+  values:
+    # Deployment Config
+    deployment:
+      enabled: true
+      kind: Deployment
+      replicas: 1
+
+    # Service Type
+    service:
+      enabled: true
+      type: LoadBalancer  # k3s klipper-lb übernimmt das
+
+    # Ports
+    ports:
+      web:
+        port: 80
+        expose:
+          default: true
+        exposedPort: 80
+      websecure:
+        port: 443
+        expose:
+          default: true
+        exposedPort: 443
+        # TLS später aktivieren:
+        # tls:
+        #   enabled: true
+
+    # Logs
+    logs:
+      general:
+        level: INFO
+      access:
+        enabled: true
+
+    # Dashboard (optional - für Debugging nützlich)
+    ingressRoute:
+      dashboard:
+        enabled: true
+        matchRule: Host(`traefik.local`)
+        entryPoints: ["web"]
+
+    # Provider Konfiguration
+    providers:
+      kubernetesCRD:
+        enabled: true
+        allowCrossNamespace: true
+      kubernetesIngress:
+        enabled: true
+        publishedService:
+          enabled: true
