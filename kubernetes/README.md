@@ -1,3 +1,4 @@
+
 # Kubernetes GitOps Configuration
 
 Dieses Verzeichnis enthält alle Kubernetes-Manifests, die von FluxCD verwaltet werden.

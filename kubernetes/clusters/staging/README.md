@@ -1,3 +1,4 @@
+
 # Staging Cluster
 
 Pre-Production Environment für finale Tests vor Production Deployment.
@@ -6,7 +7,6 @@ Pre-Production Environment für finale Tests vor Production Deployment.
 
 - **Zweck**: Realistische Tests in Production-ähnlicher Umgebung
 - **Stabilität**: Sollte nicht kaputt gehen
-- **Resources**: Mittel (1 Server, 2 Agents)
 - **FluxCD Sync**: Normal (5 Minuten Interval)
 
 ## Terraform

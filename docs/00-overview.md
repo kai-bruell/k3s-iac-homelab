@@ -1,8 +1,9 @@
+
 # Homelab Infrastructure as Code - Übersicht
 
 ## Was ist dieses Projekt?
 
-Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernetes-Clusters auf Flatcar Linux VMs mit libvirt/KVM. Es demonstriert **Immutable Infrastructure** Prinzipien und enterprise-grade Deployment-Praktiken.
+Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernetes-Clusters auf Flatcar Linux VMs mit libvirt/KVM. Es demonstriert **Immutable Infrastructure** Prinzipien und Infrastructure as Code. ***Enterprise klang zu abgehoben.
 
 ## Technologie-Stack
 
@@ -93,6 +94,8 @@ homelab-iac/
 └── docs/                    # Diese Dokumentation
 ```
 
+***Hier muss man Updaten... Projektstruktur ist gewachsen...
+
 ## Warum Immutable Infrastructure?
 
 ### Das Problem mit traditionellen VMs
@@ -123,6 +126,8 @@ System ist fertig konfiguriert → Keine weiteren Änderungen möglich
 - **Atomar**: Entweder komplett erfolgreich oder gar nicht
 - **Sicher**: Keine unautorisierten Änderungen möglich
 - **Versionskontrolle**: Komplette Infrastruktur in Git
+
+***ERKLÄRE CATTLE VS PETS... das dies ein gängiger Begriff ist der im DevOPS Bereich öfters über den Weg läuft...
 
 ## Provisionierungs-Flow
 
@@ -337,6 +342,4 @@ Dieses Projekt zeigt, wie moderne Infrastructure as Code aussieht:
 - **Immutable**: Keine manuellen Änderungen, nur neue Deployments
 - **Reproduzierbar**: Gleicher Code = Gleiche Infrastruktur
 - **Versioniert**: Komplette Historie in Git
-- **Enterprise-Grade**: Patterns aus produktiven Kubernetes-Clustern
 
-Es ist **kein** "Quick & Dirty" Setup mit SSH-Scripts, sondern eine **professionelle, wartbare Infrastruktur-Lösung**.

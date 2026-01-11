@@ -6,7 +6,6 @@ Live Production Environment - wird wie ein echter Production Cluster behandelt.
 
 - **Zweck**: Live Services (später)
 - **Stabilität**: Darf NIEMALS kaputt gehen
-- **Resources**: Maximal (3 Server HA, 3 Agents)
 - **FluxCD Sync**: Konservativ (10 Minuten Interval)
 
 ## Terraform

@@ -23,14 +23,16 @@ terraform/
     └── production/      # Live environment (planned)
 ```
 
+***IN DER STRUKTUR HAT SICH ETWAS GEÄNDERT. ES IST ./KUBERNETES HINZUGEKOMMEN.
+
 ## Current Status
 
 - ✅ Terraform modules (flatcar-vm, k3s-cluster)
 - ✅ Development environment working
 - ✅ Storage pool architecture fixed
-- ⏳ Staging environment
+- ⏳ Staging environment 
 - ⏳ Production environment
-- ⏳ GitOps with FluxCD
+- ⏳ GitOps with FluxCD ***FLUXCD IST INZWISCHEN EINGERICHTET.
 
 ## Workflow
 
@@ -51,7 +53,9 @@ terraform init
 terraform apply
 
 # Access cluster
+
+***TERRAFORM WILL AUTOMATICALLY COPY THE KUBECONFIG TO '/.kube/k3s-dev-config'
+
 export KUBECONFIG=~/.kube/k3s-dev-config
-scp core@<server-ip>:/etc/rancher/k3s/k3s.yaml $KUBECONFIG
 kubectl get nodes
 ```
