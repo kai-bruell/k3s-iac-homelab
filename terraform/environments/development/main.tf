@@ -54,3 +54,28 @@ module "k3s_cluster" {
   # k3s Config
   k3s_token = var.k3s_token
 }
+
+# Automatisches Abrufen der kubeconfig
+resource "null_resource" "fetch_kubeconfig" {
+  depends_on = [module.k3s_cluster]
+
+  triggers = {
+    server_ip = module.k3s_cluster.first_server_ip
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -e
+      echo "Warte bis k3s bereit ist..."
+      until ssh -i ~/.ssh/homelab-dev -o StrictHostKeyChecking=no -o ConnectTimeout=5 core@${module.k3s_cluster.first_server_ip} "test -f /etc/rancher/k3s/k3s.yaml" 2>/dev/null; do
+        sleep 5
+      done
+      echo "Lade kubeconfig herunter..."
+      scp -i ~/.ssh/homelab-dev -o StrictHostKeyChecking=no core@${module.k3s_cluster.first_server_ip}:/etc/rancher/k3s/k3s.yaml ~/.kube/k3s-dev-config
+      echo "Ersetze localhost mit Server-IP..."
+      sed -i 's/127.0.0.1/${module.k3s_cluster.first_server_ip}/g' ~/.kube/k3s-dev-config
+      chmod 600 ~/.kube/k3s-dev-config
+      echo "✓ kubeconfig erfolgreich nach ~/.kube/k3s-dev-config heruntergeladen!"
+    EOT
+  }
+}

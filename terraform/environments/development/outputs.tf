@@ -19,7 +19,12 @@ output "k3s_server_url" {
   value       = module.k3s_cluster.k3s_server_url
 }
 
-output "kubeconfig_command" {
-  description = "Befehl zum Abrufen der kubeconfig"
-  value       = "scp core@${module.k3s_cluster.first_server_ip}:/etc/rancher/k3s/k3s.yaml ~/.kube/k3s-dev-config"
+output "ssh_command" {
+  description = "SSH-Verbindung zum k3s Server"
+  value       = "ssh -i ~/.ssh/homelab-dev core@${module.k3s_cluster.first_server_ip}"
+}
+
+output "kubeconfig_setup" {
+  description = "Kubeconfig aktivieren"
+  value       = "export KUBECONFIG=~/.kube/k3s-dev-config"
 }
