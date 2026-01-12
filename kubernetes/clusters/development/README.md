@@ -1,3 +1,4 @@
+
 # Development Cluster
 
 Lokales Development-Environment für schnelles Testing und Experimentieren.
@@ -6,7 +7,6 @@ Lokales Development-Environment für schnelles Testing und Experimentieren.
 
 - **Zweck**: Schnelles Testen von neuen Features und Konfigurationen
 - **Stabilität**: Darf kaputt gehen
-- **Resources**: Minimal (1 Server, 1-2 Agents)
 - **FluxCD Sync**: Schnell (1 Minute Interval)
 
 ## Terraform
