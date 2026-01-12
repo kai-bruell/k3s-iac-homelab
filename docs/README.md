@@ -1,94 +1,16 @@
 # Homelab IaC Documentation
 
-Willkommen zur Dokumentation für das Homelab Infrastructure as Code Projekt!
+Infrastructure as Code für automatisiertes Kubernetes Cluster Deployment auf Flatcar Linux VMs.
 
-Dieses Projekt zeigt, wie man einen **k3s Kubernetes Cluster** auf **Flatcar Container Linux** mit **Terraform** und **libvirt** deployed - vollständig automatisiert und nach **Immutable Infrastructure** Prinzipien.
+Automatisiertes Deployment eines **k3s Kubernetes Clusters** auf **Flatcar Container Linux** mit **Terraform**, **libvirt/KVM** und **GitOps (FluxCD)**.
 
-## Dokumentations-Index
+## Dokumentation
 
-### Für Einsteiger
+### Einstieg
 
-Start hier wenn du neu bist:
-
-**[00-overview.md](00-overview.md)** - Projekt-Übersicht
-- Was ist dieses Projekt?
-- Technologie-Stack Erklärung
-- Architektur-Überblick
-- Warum Immutable Infrastructure?
-- Provisionierungs-Flow
-- Key Concepts
-
-**[03-getting-started.md](03-getting-started.md)** - Praktischer Setup-Guide
-- Voraussetzungen & Installation
-- Schritt-für-Schritt Deployment
-- Cluster-Zugriff einrichten
-- Troubleshooting
-- Nächste Schritte
-
-### Für Deep Dive
-
-Wenn du jedes Detail verstehen willst:
-
-**[01-butane-ignition.md](01-butane-ignition.md)** - Butane & Ignition Deep Dive
-- Was ist Ignition und warum nicht cloud-init?
-- Butane Config Struktur
-- Alle Config-Sections erklärt
-- k3s-server vs k3s-agent Configs
-- Terraform Integration
-- Best Practices
-- Debugging
-
-**[02-terraform-modules.md](02-terraform-modules.md)** - Terraform Module Architektur
-- Modul-Hierarchie
-- flatcar-vm Modul (VM-Erstellung)
-- k3s-cluster Modul (Orchestrierung)
-- development Environment
-- Terraform Flow Visualisiert
-- Dependency Graphs
-- Best Practices
-
-## Empfohlener Lernpfad
-
-### Level 1: Verstehen
-
-1. **[00-overview.md](00-overview.md)** lesen
-   - Verstehe die Architektur
-   - Lerne die Technologien kennen
-   - Verstehe warum Immutable Infrastructure
-
-2. **[01-butane-ignition.md](01-butane-ignition.md)** lesen
-   - Verstehe Ignition vs cloud-init
-   - Lerne Butane Config Syntax
-   - Verstehe wie VMs konfiguriert werden
-
-3. **[02-terraform-modules.md](02-terraform-modules.md)** lesen
-   - Verstehe Modul-Struktur
-   - Lerne Terraform Patterns
-   - Verstehe den kompletten Flow
-
-### Level 2: Anwenden
-
-4. **[03-getting-started.md](03-getting-started.md)** durcharbeiten
-   - Installiere Dependencies
-   - Deploye deinen ersten Cluster
-   - Teste kubectl Zugriff
-   - Deploye eine Test-App
-
-### Level 3: Experimentieren
-
-5. Eigene Änderungen
-   - Ändere Butane Configs
-   - Passe Terraform Variablen an
-   - Füge mehr Nodes hinzu
-   - Deploye eigene Apps
-
-### Level 4: Erweitern
-
-6. Erweiterte Features
-   - Installiere Ingress Controller
-   - Konfiguriere Load Balancer (MetalLB)
-   - Setup Monitoring (Prometheus/Grafana)
-   - Implementiere GitOps (Flux/ArgoCD)
+- **[00-overview.md](00-overview.md)** - Architektur, Technologie-Stack, Konzepte
+- **[01-butane-ignition.md](01-butane-ignition.md)** - VM-Provisionierung mit Butane/Ignition
+- **[02-terraform-modules.md](02-terraform-modules.md)** - Terraform Module und Flow
 
 ## Quick Reference
 
@@ -156,36 +78,27 @@ sudo journalctl -u k3s-agent -f
 ## Projekt-Struktur
 
 ```
-homelab-iac/
-├── butane-configs/
-│   ├── k3s-server/config.yaml    # Control Plane Config
-│   └── k3s-agent/config.yaml     # Worker Config
+homelab/
+├── butane-configs/          # VM-Provisionierung (Ignition)
+│   ├── k3s-server/         # Control Plane
+│   └── k3s-agent/          # Worker Nodes
 │
-├── terraform/
+├── terraform/              # Infrastructure as Code
 │   ├── modules/
-│   │   ├── flatcar-vm/           # VM-Modul
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
-│   │   └── k3s-cluster/          # Cluster-Modul
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       └── outputs.tf
-│   │
+│   │   ├── flatcar-vm/    # VM-Modul
+│   │   └── k3s-cluster/   # Cluster-Orchestrierung
 │   └── environments/
-│       └── development/
-│           ├── main.tf
-│           ├── variables.tf
-│           ├── outputs.tf
-│           └── terraform.tfvars.example
+│       ├── development/
+│       ├── staging/
+│       └── production/
 │
-└── docs/                         # Diese Dokumentation
-    ├── README.md                 # Dieser Index
-    ├── 00-overview.md
-    ├── 01-butane-ignition.md
-    ├── 02-terraform-modules.md
-    └── 03-getting-started.md
-```
+├── kubernetes/             # GitOps Manifests (FluxCD)
+│   ├── flux-system/       # FluxCD Bootstrap
+│   ├── clusters/          # Environment-spezifisch
+│   ├── infrastructure/    # Base Services (Traefik, etc.)
+│   └── apps/             # Applikationen
+│
+└── docs/                  # Dokumentation
 
 ## Technologie-Stack
 
@@ -201,48 +114,45 @@ homelab-iac/
 
 ### Immutable Infrastructure
 
-**Traditional (Mutable):**
+**Mutable (traditionell):**
 ```
 VM erstellen → SSH → Pakete installieren → Config editieren → Hoffen
 ```
 
-**Immutable (unser Ansatz):**
+**Immutable (moderner Ansatz):**
 ```
-Config in Git → Terraform apply → VM startet konfiguriert → Fertig
+Config in Git → terraform apply → VM startet fertig konfiguriert
 ```
 
-**Vorteile:**
-- Deterministisch
-- Reproduzierbar
-- Versioniert
-- Keine Config Drift
+VMs werden beim ersten Boot via Ignition konfiguriert und dann nicht mehr verändert. Änderungen erfordern Neudeployment.
+
+### Cattle vs. Pets
+
+Ein gängiger Begriff im DevOps-Bereich:
+
+- **Pets**: Manuell konfigurierte Server mit Namen. Bei Ausfall aufwendige Wiederherstellung.
+- **Cattle**: Identische, austauschbare Instanzen aus Code provisioniert. Bei Problemen: Wegwerfen und neu erstellen.
+
+Diese Infrastruktur behandelt VMs als Cattle - jederzeit aus Code reproduzierbar.
 
 ### Infrastructure as Code
 
-Komplette Infrastruktur in Git:
-- Butane Configs
-- Terraform Modules
-- Environment Variables
+Gesamte Infrastruktur versioniert in Git:
+- Butane Configs für VM-Provisionierung
+- Terraform Modules für Infrastruktur
+- Kubernetes Manifests für Services
 
-**Ein Befehl erstellt alles:**
-```bash
-terraform apply
-```
-
-**Ein Befehl löscht alles:**
-```bash
-terraform destroy
-```
+Ein Befehl für Deployment, ein Befehl zum Löschen.
 
 ### Declarative Configuration
 
-**Imperativ (wie):**
+**Imperativ (Befehle):**
 ```bash
 curl https://get.k3s.io | sh
 systemctl start k3s
 ```
 
-**Deklarativ (was):**
+**Deklarativ (Zustandsbeschreibung):**
 ```yaml
 systemd:
   units:
@@ -250,7 +160,7 @@ systemd:
       enabled: true
 ```
 
-Ignition & Terraform kümmern sich ums "Wie"!
+Ignition und Terraform setzen den gewünschten Zustand um.
 
 ## FAQs
 
@@ -275,73 +185,37 @@ Ignition & Terraform kümmern sich ums "Wie"!
 - **Immutable OS:** Flatcar funktioniert am besten als VM
 - **Lerneffekt:** Verstehe wie Cloud-VMs funktionieren
 
-### Kann ich das in Production nutzen?
+### Production-Einsatz möglich?
 
-**Ja, aber:**
-- Nutze bare-metal statt libvirt VMs (oder Cloud-Provider)
-- Implementiere HA für Control Plane (3+ Server Nodes)
-- Setup Backup-Strategie (etcd Snapshots)
-- Monitoring & Alerting (Prometheus/Grafana)
-- GitOps für App-Deployments (Flux/ArgoCD)
-
-**Prinzipien sind Production-Ready:**
+Die verwendeten Prinzipien sind production-ready:
 - Immutable Infrastructure ✓
 - Infrastructure as Code ✓
 - Declarative Configuration ✓
 - Automated Provisioning ✓
 
-## Weiterführende Ressourcen
+Für Production-Deployments zusätzlich empfohlen:
+- Bare-metal oder Cloud-Provider statt lokaler libvirt VMs
+- HA Control Plane (3+ Server Nodes)
+- Backup-Strategie (etcd Snapshots)
+- Monitoring & Alerting
+- GitOps für App-Deployments
+
+## Ressourcen
 
 ### Offizielle Dokumentation
 
-- [Flatcar Linux Docs](https://www.flatcar.org/docs/latest/)
+- [Flatcar Linux](https://www.flatcar.org/docs/latest/)
 - [Butane Configs](https://coreos.github.io/butane/)
 - [Ignition Specification](https://coreos.github.io/ignition/)
 - [k3s Documentation](https://docs.k3s.io/)
 - [Terraform Docs](https://www.terraform.io/docs)
 - [libvirt Provider](https://registry.terraform.io/providers/dmacvicar/libvirt/latest/docs)
+- [FluxCD Documentation](https://fluxcd.io/docs/)
 
 ### Verwandte Projekte
 
-- [Talos Linux](https://www.talos.dev/) - Alternative zu Flatcar (API-driven)
-- [k0s](https://k0sproject.io/) - Alternative zu k3s
-- [RKE2](https://docs.rke2.io/) - Rancher's k8s Distribution
+- [Talos Linux](https://www.talos.dev/) - API-driven Kubernetes OS
+- [k0s](https://k0sproject.io/) - Zero-friction Kubernetes
+- [RKE2](https://docs.rke2.io/) - Rancher Kubernetes Distribution
 - [OpenTofu](https://opentofu.org/) - Open-Source Terraform Fork
 
-## Unterstützung
-
-### Bei Problemen
-
-1. Prüfe **[03-getting-started.md](03-getting-started.md)** Troubleshooting Section
-2. Schaue in die Logs (siehe Quick Reference oben)
-3. Prüfe Terraform State: `terraform state list`
-4. Öffne ein GitHub Issue mit:
-   - Terraform Version
-   - Error Messages
-   - Relevante Logs
-
-### Beitragen
-
-Pull Requests willkommen für:
-- Dokumentations-Verbesserungen
-- Bugfixes
-- Neue Features
-- Zusätzliche Beispiele
-
-## Lizenz
-
-Dieses Projekt steht unter der MIT Lizenz.
-
-## Zusammenfassung
-
-Du hast jetzt Zugriff auf:
-
-- ✅ **Komplette Dokumentation** des Projekts
-- ✅ **Lernpfad** vom Einsteiger zum Expert
-- ✅ **Praktische Guides** für Deployment
-- ✅ **Deep Dives** in Technologien
-- ✅ **Best Practices** für Production
-
-**Viel Erfolg beim Lernen und Experimentieren!**
-
-Start mit **[00-overview.md](00-overview.md)** oder springe direkt zu **[03-getting-started.md](03-getting-started.md)** wenn du loslegen willst!

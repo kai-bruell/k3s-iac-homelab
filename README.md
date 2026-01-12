@@ -1,6 +1,6 @@
 # k3s-iac-homelab
 
-Homelab infrastructure for k3s cluster on Flatcar Linux VMs using Terraform.
+Homelab infrastructure for k3s cluster on Flatcar Linux VMs using Terraform and GitOps.
 
 ## Stack
 
@@ -8,19 +8,33 @@ Homelab infrastructure for k3s cluster on Flatcar Linux VMs using Terraform.
 - **libvirt/KVM** - Virtualization
 - **Flatcar Container Linux** - Minimal, immutable OS
 - **k3s** - Lightweight Kubernetes
-- **Butane** - Ignition config generation
+- **Butane/Ignition** - Declarative VM provisioning
+- **FluxCD** - GitOps continuous delivery
 
 ## Structure
 
 ```
-terraform/
-├── modules/
-│   ├── flatcar-vm/      # Reusable VM module
-│   └── k3s-cluster/     # k3s cluster orchestration
-└── environments/
-    ├── development/     # Local testing
-    ├── staging/         # Pre-production (planned)
-    └── production/      # Live environment (planned)
+homelab/
+├── butane-configs/      # VM provisioning (Ignition)
+│   ├── k3s-server/     # Control plane configuration
+│   └── k3s-agent/      # Worker node configuration
+│
+├── terraform/
+│   ├── modules/
+│   │   ├── flatcar-vm/      # Reusable VM module
+│   │   └── k3s-cluster/     # k3s cluster orchestration
+│   └── environments/
+│       ├── development/     # Local testing
+│       ├── staging/         # Pre-production (planned)
+│       └── production/      # Live environment (planned)
+│
+├── kubernetes/          # GitOps manifests (FluxCD)
+│   ├── flux-system/    # FluxCD bootstrap
+│   ├── clusters/       # Environment-specific configs
+│   ├── infrastructure/ # Base services (Traefik, etc.)
+│   └── apps/          # Applications
+│
+└── docs/              # Documentation
 ```
 
 ## Current Status
@@ -28,9 +42,10 @@ terraform/
 - ✅ Terraform modules (flatcar-vm, k3s-cluster)
 - ✅ Development environment working
 - ✅ Storage pool architecture fixed
+- ✅ GitOps with FluxCD
+- ✅ Automated kubeconfig download
 - ⏳ Staging environment
 - ⏳ Production environment
-- ⏳ GitOps with FluxCD
 
 ## Workflow
 
@@ -50,8 +65,15 @@ cd terraform/environments/development
 terraform init
 terraform apply
 
-# Access cluster
+# Access cluster (kubeconfig automatically downloaded)
 export KUBECONFIG=~/.kube/k3s-dev-config
-scp core@<server-ip>:/etc/rancher/k3s/k3s.yaml $KUBECONFIG
 kubectl get nodes
+
+# Verify FluxCD
+kubectl get kustomizations -A
+flux get sources git
 ```
+
+## Documentation
+
+See [docs/README.md](docs/README.md) for detailed documentation.

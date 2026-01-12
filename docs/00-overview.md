@@ -1,8 +1,9 @@
+
 # Homelab Infrastructure as Code - Übersicht
 
 ## Was ist dieses Projekt?
 
-Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernetes-Clusters auf Flatcar Linux VMs mit libvirt/KVM. Es demonstriert **Immutable Infrastructure** Prinzipien und enterprise-grade Deployment-Praktiken.
+Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernetes-Clusters auf Flatcar Linux VMs mit libvirt/KVM. Es demonstriert **Immutable Infrastructure** Prinzipien und Infrastructure as Code. ***Enterprise klang zu abgehoben.
 
 ## Technologie-Stack
 
@@ -65,7 +66,7 @@ Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernet
 ## Projekt-Struktur
 
 ```
-homelab-iac/
+homelab/
 ├── butane-configs/          # Butane Configuration Templates
 │   ├── k3s-server/          # Control Plane Nodes
 │   │   └── config.yaml
@@ -75,22 +76,29 @@ homelab-iac/
 ├── terraform/
 │   ├── modules/             # Wiederverwendbare Module
 │   │   ├── flatcar-vm/      # Basis VM-Modul
-│   │   │   ├── main.tf
-│   │   │   ├── variables.tf
-│   │   │   └── outputs.tf
 │   │   └── k3s-cluster/     # k3s Cluster-Modul
-│   │       ├── main.tf
-│   │       ├── variables.tf
-│   │       └── outputs.tf
 │   │
 │   └── environments/        # Environment-spezifische Configs
-│       └── development/
-│           ├── main.tf
-│           ├── variables.tf
-│           ├── outputs.tf
-│           └── terraform.tfvars.example
+│       ├── development/     # Lokale Dev-Umgebung
+│       ├── staging/         # Pre-Production (geplant)
+│       └── production/      # Live-Umgebung (geplant)
+│
+├── kubernetes/              # GitOps Manifests (FluxCD)
+│   ├── flux-system/         # FluxCD Bootstrap & Core
+│   ├── clusters/            # Environment-spezifische K8s Configs
+│   │   ├── development/
+│   │   ├── staging/
+│   │   └── production/
+│   ├── infrastructure/      # Base Services (Traefik, etc.)
+│   │   ├── controllers/     # Ingress, Service Mesh, etc.
+│   │   └── configs/         # ConfigMaps, Secrets, etc.
+│   └── apps/                # Applikationen
 │
 └── docs/                    # Diese Dokumentation
+    ├── 00-overview.md
+    ├── 01-butane-ignition.md
+    ├── 02-terraform-modules.md
+    └── common_errors/       # Troubleshooting Guides
 ```
 
 ## Warum Immutable Infrastructure?
@@ -123,6 +131,39 @@ System ist fertig konfiguriert → Keine weiteren Änderungen möglich
 - **Atomar**: Entweder komplett erfolgreich oder gar nicht
 - **Sicher**: Keine unautorisierten Änderungen möglich
 - **Versionskontrolle**: Komplette Infrastruktur in Git
+
+### Cattle vs Pets - Die DevOps-Philosophie
+
+Ein fundamentales Konzept in der modernen Infrastruktur:
+
+**Pets (Traditionell):**
+- Jeder Server hat einen Namen (z.B. "prometheus-prod-01")
+- Wird bei Problemen "gepflegt" und "geheilt"
+- Manuelle Konfiguration und Wartung
+- Unique und schwer zu ersetzen
+- **Problem:** Downtime, wenn ein Pet krank wird
+
+**Cattle (Modern/Immutable):**
+- Server sind nummeriert (z.B. "k3s-agent-1", "k3s-agent-2")
+- Wird bei Problemen **ersetzt**, nicht repariert
+- Automatisch provisioniert und identisch
+- Austauschbar und einfach zu skalieren
+- **Lösung:** Einfach ein neues Tier aus der Herde nehmen
+
+**Dieses Projekt = Cattle Approach:**
+```bash
+# VM kaputt? Kein Problem!
+terraform destroy -target=libvirt_domain.agent[1]
+terraform apply  # Neue, identische VM in <2 Minuten
+
+# Statt: 3 Stunden SSH-Debugging auf einem "Pet"
+```
+
+**Warum Cattle besser ist:**
+- Schnellere Recovery (Minuten statt Stunden)
+- Keine Snowflake-Server
+- Horizontal skalierbar
+- Infrastructure as Code = Cattle-freundlich
 
 ## Provisionierungs-Flow
 
@@ -337,6 +378,4 @@ Dieses Projekt zeigt, wie moderne Infrastructure as Code aussieht:
 - **Immutable**: Keine manuellen Änderungen, nur neue Deployments
 - **Reproduzierbar**: Gleicher Code = Gleiche Infrastruktur
 - **Versioniert**: Komplette Historie in Git
-- **Enterprise-Grade**: Patterns aus produktiven Kubernetes-Clustern
 
-Es ist **kein** "Quick & Dirty" Setup mit SSH-Scripts, sondern eine **professionelle, wartbare Infrastruktur-Lösung**.
