@@ -1,10 +1,10 @@
 # k3s-iac-homelab
 
-Homelab infrastructure for k3s cluster on Flatcar Linux VMs using Terraform and GitOps.
+Homelab infrastructure for k3s cluster on Flatcar Linux VMs using OpenTofu and GitOps.
 
 ## Stack
 
-- **Terraform** - Infrastructure as Code
+- **OpenTofu** - Infrastructure as Code (open-source Terraform fork)
 - **libvirt/KVM** - Virtualization
 - **Flatcar Container Linux** - Minimal, immutable OS
 - **k3s** - Lightweight Kubernetes
@@ -39,7 +39,7 @@ homelab/
 
 ## Current Status
 
-- ✅ Terraform modules (flatcar-vm, k3s-cluster)
+- ✅ OpenTofu modules (flatcar-vm, k3s-cluster)
 - ✅ Development environment working
 - ✅ Storage pool architecture fixed
 - ✅ GitOps with FluxCD
@@ -62,8 +62,8 @@ devbox shell
 
 # Deploy development cluster
 cd terraform/environments/development
-terraform init
-terraform apply
+tofu init
+tofu apply
 
 # Access cluster (kubeconfig automatically downloaded)
 export KUBECONFIG=~/.kube/k3s-dev-config

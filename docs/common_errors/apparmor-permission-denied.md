@@ -2,7 +2,7 @@
 
 ## Error Symptom
 
-When running `terraform apply`, VMs fail to start with:
+When running `tofu apply`, VMs fail to start with:
 
 ```
 Error: error creating libvirt domain: internal error: process exited while connecting to monitor:
@@ -12,11 +12,11 @@ Could not open '/var/lib/libvirt/images/k3s-dev/k3s-dev-base.img': Permission de
 
 ## Root Cause Analysis
 
-This is a **complex interaction** between libvirt, QEMU, AppArmor, and Terraform:
+This is a **complex interaction** between libvirt, QEMU, AppArmor, and OpenTofu:
 
 ### The Problem Chain
 
-1. **Terraform creates disk images** with ownership `root:root`
+1. **OpenTofu creates disk images** with ownership `root:root`
 2. **libvirt's `virt-aa-helper`** runs to generate AppArmor profiles for the VM
 3. **`virt-aa-helper` tries to read the disk images** to detect backing file chains (for qcow2 images)
 4. **AppArmor blocks `virt-aa-helper`** from reading files owned by `root:root` in custom storage pools
@@ -93,11 +93,11 @@ sudo systemctl reload apparmor
 sudo systemctl restart libvirtd
 ```
 
-### Step 5: Test with Terraform
+### Step 5: Test with OpenTofu
 
 ```bash
 cd homelab-iac/terraform/environments/development
-terraform apply
+tofu apply
 ```
 
 ## Verification
