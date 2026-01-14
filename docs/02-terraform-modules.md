@@ -1,5 +1,5 @@
 
-# Terraform Module Deep Dive
+# OpenTofu Module Deep Dive
 
 ## Modul-Architektur
 
@@ -26,6 +26,8 @@ Ebene 1: modules/flatcar-vm/
 - **Wiederverwendbarkeit** - Gleicher Code für Server & Agents
 - **Separation of Concerns** - Jedes Modul hat eine Aufgabe
 - **Testbarkeit** - Module einzeln testen
+
+> **Hinweis:** OpenTofu ist ein Open-Source Fork von Terraform und verwendet die gleiche HCL-Syntax. Alle Terraform-Konzepte (Module, Provider, State) funktionieren identisch.
 
 ## Modul 1: flatcar-vm
 
@@ -132,7 +134,7 @@ validation {
   error_message = "k3s_role muss 'server' oder 'agent' sein."
 }
 ```
-Terraform validiert Inputs zur Plan-Zeit!
+OpenTofu validiert Inputs zur Plan-Zeit!
 
 2. **Sensitive:**
 ```hcl
@@ -373,7 +375,7 @@ network_interface {
   wait_for_lease = true  # ← Wartet auf DHCP IP!
 }
 ```
-Terraform wartet bis VM eine IP bekommt. Dann ist `libvirt_domain.vm.network_interface[0].addresses[0]` verfügbar.
+OpenTofu wartet bis VM eine IP bekommt. Dann ist `libvirt_domain.vm.network_interface[0].addresses[0]` verfügbar.
 
 3. **console:**
 ```hcl
@@ -727,7 +729,7 @@ k3s_server_url = local.k3s_server_url
                  # Die kommt von module.k3s_servers[0].vm_ip
 ```
 
-Terraform muss warten bis Server eine IP hat!
+OpenTofu muss warten bis Server eine IP hat!
 
 ### Outputs (outputs.tf)
 
@@ -900,7 +902,7 @@ graphics_type = "spice"
 ```bash
 cp terraform.tfvars.example terraform.tfvars
 vim terraform.tfvars  # SSH Keys eintragen
-terraform plan
+tofu plan
 ```
 
 ### Outputs (outputs.tf)
@@ -938,16 +940,16 @@ output "kubeconfig_command" {
 Zeigt User direkt den Befehl zum kubeconfig Download:
 
 ```bash
-terraform output kubeconfig_command
+tofu output kubeconfig_command
 # scp core@192.168.122.10:/etc/rancher/k3s/k3s.yaml ~/.kube/k3s-dev-config
 ```
 
-## Terraform Flow Visualisiert
+## OpenTofu Flow Visualisiert
 
 ### Apply Flow
 
 ```
-terraform apply
+tofu apply
     ↓
 1. Provider initialisiert (libvirt, ct)
     ↓
@@ -1051,7 +1053,7 @@ variable "server_count" {
 }
 ```
 
-Fehler zur **Plan-Zeit** statt zur **Apply-Zeit**!
+Fehler zur **tofu plan-Zeit** statt zur **tofu apply-Zeit**!
 
 ### 4. Sensitive markieren
 
@@ -1103,12 +1105,12 @@ development (Konkrete Werte)
 - **Data Sources** - Lesen/Konvertieren statt Erstellen
 - **try()** - Fehler abfangen
 
-**Terraform Execution:**
+**OpenTofu Execution:**
 
-1. Init - Provider herunterladen
-2. Plan - Änderungen berechnen
-3. Apply - Änderungen ausführen
-4. Outputs - Ergebnisse anzeigen
+1. `tofu init` - Provider herunterladen
+2. `tofu plan` - Änderungen berechnen
+3. `tofu apply` - Änderungen ausführen
+4. `tofu output` - Ergebnisse anzeigen
 
 **Module Vorteile:**
 

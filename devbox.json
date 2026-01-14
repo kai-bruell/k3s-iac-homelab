@@ -1,6 +1,7 @@
 {
   "packages": [
-    "terraform@1.14.3",
+    "opentofu@1.11.2",
+    "kubectl@1.35.0",
     "butane@0.25.1",
     "fluxcd@2.7.5"
   ],

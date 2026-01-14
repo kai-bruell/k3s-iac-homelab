@@ -8,11 +8,11 @@ Live Production Environment - wird wie ein echter Production Cluster behandelt.
 - **Stabilität**: Darf NIEMALS kaputt gehen
 - **FluxCD Sync**: Konservativ (10 Minuten Interval)
 
-## Terraform
+## OpenTofu
 
 ```bash
 cd terraform/environments/production
-terraform apply
+tofu apply
 ```
 
 ## Verwendung

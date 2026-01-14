@@ -2,7 +2,7 @@
 
 Infrastructure as Code für automatisiertes Kubernetes Cluster Deployment auf Flatcar Linux VMs.
 
-Automatisiertes Deployment eines **k3s Kubernetes Clusters** auf **Flatcar Container Linux** mit **Terraform**, **libvirt/KVM** und **GitOps (FluxCD)**.
+Automatisiertes Deployment eines **k3s Kubernetes Clusters** auf **Flatcar Container Linux** mit **OpenTofu**, **libvirt/KVM** und **GitOps (FluxCD)**.
 
 ## Dokumentation
 
@@ -16,14 +16,14 @@ Automatisiertes Deployment eines **k3s Kubernetes Clusters** auf **Flatcar Conta
 
 ### Wichtige Befehle
 
-**Terraform:**
+**OpenTofu:**
 ```bash
 cd terraform/environments/development
-terraform init       # Provider installieren
-terraform plan       # Änderungen anzeigen
-terraform apply      # Ausführen
-terraform destroy    # Alles löschen
-terraform output     # Outputs anzeigen
+tofu init       # Provider installieren
+tofu plan       # Änderungen anzeigen
+tofu apply      # Ausführen
+tofu destroy    # Alles löschen
+tofu output     # Outputs anzeigen
 ```
 
 **libvirt:**
@@ -106,7 +106,7 @@ homelab/
 |------------|---------|-------|
 | **Flatcar Linux** | Stable | Immutable Container OS |
 | **k3s** | Latest | Lightweight Kubernetes |
-| **Terraform** | >= 1.0 | Infrastructure as Code |
+| **OpenTofu** | >= 1.0 | Infrastructure as Code |
 | **libvirt** | ~> 0.7 | KVM Virtualisierung |
 | **Butane/Ignition** | ~> 0.13 / 3.3.0 | VM Provisionierung |
 
@@ -121,7 +121,7 @@ VM erstellen → SSH → Pakete installieren → Config editieren → Hoffen
 
 **Immutable (moderner Ansatz):**
 ```
-Config in Git → terraform apply → VM startet fertig konfiguriert
+Config in Git → tofu apply → VM startet fertig konfiguriert
 ```
 
 VMs werden beim ersten Boot via Ignition konfiguriert und dann nicht mehr verändert. Änderungen erfordern Neudeployment.
@@ -208,7 +208,7 @@ Für Production-Deployments zusätzlich empfohlen:
 - [Butane Configs](https://coreos.github.io/butane/)
 - [Ignition Specification](https://coreos.github.io/ignition/)
 - [k3s Documentation](https://docs.k3s.io/)
-- [Terraform Docs](https://www.terraform.io/docs)
+- [OpenTofu Docs](https://opentofu.org/docs/)
 - [libvirt Provider](https://registry.terraform.io/providers/dmacvicar/libvirt/latest/docs)
 - [FluxCD Documentation](https://fluxcd.io/docs/)
 

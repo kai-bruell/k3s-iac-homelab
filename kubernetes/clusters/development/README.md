@@ -9,11 +9,11 @@ Lokales Development-Environment für schnelles Testing und Experimentieren.
 - **Stabilität**: Darf kaputt gehen
 - **FluxCD Sync**: Schnell (1 Minute Interval)
 
-## Terraform
+## OpenTofu
 
 ```bash
 cd terraform/environments/development
-terraform apply
+tofu apply
 ```
 
 ## Verwendung

@@ -21,8 +21,8 @@ Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernet
    - Butane wird zu Ignition kompiliert
    - Ignition konfiguriert das System beim ersten Boot **einmalig und atomar**
 
-3. **Terraform**
-   - Infrastructure as Code
+3. **OpenTofu**
+   - Infrastructure as Code (open-source Terraform fork)
    - Deklarative Beschreibung der Infrastruktur
    - Idempotent und reproduzierbar
 
@@ -59,7 +59,7 @@ Dieses Projekt ermöglicht die automatisierte Provisionierung eines k3s Kubernet
 │  │  Ignition Config applied at first boot               │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                             │
-│  Terraform manages VM lifecycle                             │
+│  OpenTofu manages VM lifecycle                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -153,8 +153,8 @@ Ein fundamentales Konzept in der modernen Infrastruktur:
 **Dieses Projekt = Cattle Approach:**
 ```bash
 # VM kaputt? Kein Problem!
-terraform destroy -target=libvirt_domain.agent[1]
-terraform apply  # Neue, identische VM in <2 Minuten
+tofu destroy -target=libvirt_domain.agent[1]
+tofu apply  # Neue, identische VM in <2 Minuten
 
 # Statt: 3 Stunden SSH-Debugging auf einem "Pet"
 ```
@@ -172,13 +172,13 @@ terraform apply  # Neue, identische VM in <2 Minuten
 ```
 1. Butane Config (YAML)
    ↓
-2. Terraform templatefile() ersetzt Variablen
+2. OpenTofu templatefile() ersetzt Variablen
    ↓
 3. Poseidon ct Provider kompiliert zu Ignition (JSON)
    ↓
-4. Terraform erstellt libvirt_ignition Resource (ISO-Image)
+4. OpenTofu erstellt libvirt_ignition Resource (ISO-Image)
    ↓
-5. Terraform erstellt VM mit coreos_ignition Attribut
+5. OpenTofu erstellt VM mit coreos_ignition Attribut
    ↓
 6. VM bootet → Flatcar liest Ignition Config
    ↓
@@ -194,7 +194,7 @@ terraform apply  # Neue, identische VM in <2 Minuten
 10. Cluster ist betriebsbereit
 ```
 
-### Detaillierter Terraform Flow
+### Detaillierter OpenTofu Flow
 
 ```hcl
 # 1. Butane Template mit Variablen
@@ -344,9 +344,9 @@ resource "libvirt_volume" "vm" {
 - Spart massiv Speicherplatz
 - Schnellere VM-Erstellung
 
-### 3. Terraform Module
+### 3. OpenTofu Module
 
-**Module = Wiederverwendbare Terraform-Komponenten**
+**Module = Wiederverwendbare OpenTofu-Komponenten**
 
 ```
 flatcar-vm Modul        → Erstellt eine einzelne VM

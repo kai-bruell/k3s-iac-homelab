@@ -9,11 +9,11 @@ Pre-Production Environment für finale Tests vor Production Deployment.
 - **Stabilität**: Sollte nicht kaputt gehen
 - **FluxCD Sync**: Normal (5 Minuten Interval)
 
-## Terraform
+## OpenTofu
 
 ```bash
 cd terraform/environments/staging
-terraform apply
+tofu apply
 ```
 
 ## Verwendung
