@@ -14,6 +14,18 @@ storage:
       mode: 0755
 
   files:
+    # Static IP Configuration
+    - path: /etc/systemd/network/10-static.network
+      mode: 0644
+      contents:
+        inline: |
+          [Match]
+          Name=e*
+
+          [Network]
+          Address=${static_ip}
+          Gateway=${gateway}
+          DNS=${dns}
     # k3s Agent Installation Script
     - path: /opt/install-k3s.sh
       mode: 0755

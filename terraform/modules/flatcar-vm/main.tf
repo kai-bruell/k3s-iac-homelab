@@ -1,30 +1,15 @@
 terraform {
   required_version = ">= 1.0"
   required_providers {
-    libvirt = {
-      source  = "dmacvicar/libvirt"
-      version = "~> 0.7.0"
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = ">= 0.70.0"
     }
     ct = {
       source  = "poseidon/ct"
       version = "~> 0.13"
     }
   }
-}
-
-# VM-spezifisches Volume (basierend auf übergebenem Base-Image)
-resource "libvirt_volume" "vm" {
-  name           = "${var.vm_name}-${substr(md5(libvirt_ignition.ignition.id), 0, 8)}.qcow2"
-  base_volume_id = var.base_volume_id
-  pool           = var.pool_name
-  format         = "qcow2"
-}
-
-# Ignition-Konfiguration aus Butane generieren
-resource "libvirt_ignition" "ignition" {
-  name    = "${var.vm_name}-ignition"
-  content = data.ct_config.vm_config.rendered
-  pool    = var.pool_name
 }
 
 # Butane Config zu Ignition konvertieren
@@ -36,35 +21,74 @@ data "ct_config" "vm_config" {
     k3s_token      = var.k3s_token
     k3s_server_url = var.k3s_server_url
     extra_config   = var.extra_butane_config
+    static_ip      = var.static_ip
+    gateway        = var.gateway
+    dns            = var.dns
   })
   strict = true
 }
 
-# Virtuelle Maschine
-resource "libvirt_domain" "vm" {
-  name   = var.vm_name
-  vcpu   = var.vcpu
-  memory = var.memory
+# Ignition Config als Proxmox Snippet speichern
+resource "proxmox_virtual_environment_file" "ignition" {
+  content_type = "snippets"
+  datastore_id = var.snippets_datastore
+  node_name    = var.node_name
 
-  coreos_ignition = libvirt_ignition.ignition.id
+  source_raw {
+    data      = data.ct_config.vm_config.rendered
+    file_name = "${var.vm_name}-ignition.json"
+  }
+}
+
+# Virtuelle Maschine
+resource "proxmox_virtual_environment_vm" "vm" {
+  name      = var.vm_name
+  node_name = var.node_name
+  vm_id     = var.vm_id
+
+  # Ignition via QEMU fw_cfg
+  kvm_arguments = "-fw_cfg name=opt/org.flatcar-linux/config,file=/var/lib/vz/snippets/${var.vm_name}-ignition.json"
+
+  cpu {
+    cores = var.vcpu
+    type  = "host"
+  }
+
+  memory {
+    dedicated = var.memory
+  }
+
+  # Boot-Disk von Flatcar Template klonen
+  clone {
+    vm_id = var.template_vm_id
+    full  = true
+  }
 
   disk {
-    volume_id = libvirt_volume.vm.id
+    datastore_id = var.datastore_id
+    interface    = "scsi0"
+    size         = var.disk_size
   }
 
-  network_interface {
-    network_name   = var.network_name
-    wait_for_lease = true
+  network_device {
+    bridge = var.network_bridge
   }
 
-  console {
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
+  # Serial Console für Flatcar
+  serial_device {}
+
+  operating_system {
+    type = "l26"
   }
 
-  graphics {
-    type        = var.graphics_type
-    listen_type = "address"
+  agent {
+    enabled = false
+  }
+
+  # VM neu erstellen wenn Ignition sich ändert (Immutable Infrastructure)
+  lifecycle {
+    replace_triggered_by = [
+      proxmox_virtual_environment_file.ignition
+    ]
   }
 }

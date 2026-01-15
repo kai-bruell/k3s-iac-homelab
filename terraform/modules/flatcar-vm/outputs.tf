@@ -1,14 +1,14 @@
 output "vm_id" {
-  description = "ID der VM"
-  value       = libvirt_domain.vm.id
+  description = "ID der VM in Proxmox"
+  value       = proxmox_virtual_environment_vm.vm.vm_id
 }
 
 output "vm_name" {
   description = "Name der VM"
-  value       = libvirt_domain.vm.name
+  value       = proxmox_virtual_environment_vm.vm.name
 }
 
 output "vm_ip" {
   description = "IP-Adresse der VM"
-  value       = try(libvirt_domain.vm.network_interface[0].addresses[0], "")
+  value       = split("/", var.static_ip)[0]
 }

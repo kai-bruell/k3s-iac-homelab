@@ -1,31 +1,41 @@
-variable "cluster_name" {
-  description = "Name des Clusters (Präfix für Ressourcen)"
+# Proxmox Variablen
+variable "node_name" {
+  description = "Name des Proxmox Nodes"
   type        = string
 }
 
+variable "vm_id" {
+  description = "VM ID in Proxmox (muss eindeutig sein)"
+  type        = number
+}
+
+variable "template_vm_id" {
+  description = "VM ID des Flatcar Templates"
+  type        = number
+}
+
+variable "datastore_id" {
+  description = "Proxmox Datastore für VM Disks"
+  type        = string
+  default     = "local-zfs"
+}
+
+variable "snippets_datastore" {
+  description = "Proxmox Datastore für Snippets (muss snippets unterstützen)"
+  type        = string
+  default     = "local"
+}
+
+variable "network_bridge" {
+  description = "Proxmox Network Bridge"
+  type        = string
+  default     = "vmbr0"
+}
+
+# VM Variablen
 variable "vm_name" {
   description = "Name der virtuellen Maschine"
   type        = string
-}
-
-variable "pool_name" {
-  description = "Name des libvirt Storage Pools"
-  type        = string
-}
-
-variable "base_volume_id" {
-  description = "ID des Basis-Image Volumes"
-  type        = string
-}
-
-variable "butane_config_path" {
-  description = "Pfad zur Butane Config Template-Datei"
-  type        = string
-}
-
-variable "ssh_keys" {
-  description = "Liste von SSH Public Keys"
-  type        = list(string)
 }
 
 variable "vcpu" {
@@ -40,16 +50,27 @@ variable "memory" {
   default     = 2048
 }
 
-variable "network_name" {
-  description = "Name des libvirt Netzwerks"
-  type        = string
-  default     = "default"
+variable "disk_size" {
+  description = "Disk Größe in GB"
+  type        = number
+  default     = 20
 }
 
-variable "graphics_type" {
-  description = "Grafik-Typ (spice oder vnc)"
+# Butane/Ignition Variablen
+variable "butane_config_path" {
+  description = "Pfad zur Butane Config Template-Datei"
   type        = string
-  default     = "spice"
+}
+
+variable "ssh_keys" {
+  description = "Liste von SSH Public Keys"
+  type        = list(string)
+}
+
+variable "extra_butane_config" {
+  description = "Zusätzliche Butane Config (YAML)"
+  type        = string
+  default     = ""
 }
 
 # k3s-spezifische Variablen
@@ -74,8 +95,18 @@ variable "k3s_server_url" {
   default     = ""
 }
 
-variable "extra_butane_config" {
-  description = "Zusätzliche Butane Config (YAML)"
+# Netzwerk (statische IP)
+variable "static_ip" {
+  description = "Statische IP-Adresse mit CIDR (z.B. 192.168.1.100/24)"
   type        = string
-  default     = ""
+}
+
+variable "gateway" {
+  description = "Gateway IP-Adresse"
+  type        = string
+}
+
+variable "dns" {
+  description = "DNS Server IP-Adresse"
+  type        = string
 }

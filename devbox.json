@@ -7,10 +7,7 @@
   ],
   "shell": {
     "init_hook": [
-      "bash $PWD/devbox.sh"
+      "source $PWD/devbox.sh"
     ]
-  },
-  "env": {
-    "LIBVIRT_DEFAULT_URI": "qemu:///system"
   }
 }
