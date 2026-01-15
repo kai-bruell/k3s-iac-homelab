@@ -7,3 +7,6 @@ devbox.lock
 *.tfstate
 *.tfstate.backup
 *.tfvars
+
+# Secrets
+.env

@@ -3,16 +3,17 @@
 # Devbox initialization script
 # This runs when entering the devbox shell
 
-# TODO: Add dependency checks
-# - Check if libvirtd is running (systemctl status libvirtd)
-# - Check if user is in libvirt group (groups | grep libvirt)
-# - Check if default network exists (virsh net-list --all)
-# - Verify socket is accessible (test -S /var/run/libvirt/libvirt-sock)
-
-# TODO: Add helpful environment setup
-# - Set LIBVIRT_DEFAULT_URI if needed
-# - Print status message with virsh connection info
-# - Show running VMs
+# Load .env if exists
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
 
 echo "Devbox environment loaded"
-echo "Using system libvirtd (qemu:///system)"
+
+# Show loaded config (without secrets)
+if [ -n "$TF_VAR_proxmox_endpoint" ]; then
+  HOST=$(echo "$TF_VAR_proxmox_endpoint" | sed -E 's|https?://([^:]+).*|\1|')
+  echo "Proxmox: ${TF_VAR_proxmox_username}@${HOST}"
+fi

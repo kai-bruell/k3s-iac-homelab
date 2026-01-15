@@ -3,14 +3,39 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "pool_name" {
-  description = "Name des libvirt Storage Pools"
+# Proxmox Variablen
+variable "node_name" {
+  description = "Name des Proxmox Nodes"
   type        = string
 }
 
-variable "base_volume_id" {
-  description = "ID des Basis-Image Volumes"
+variable "template_vm_id" {
+  description = "VM ID des Flatcar Templates"
+  type        = number
+}
+
+variable "vm_id_start" {
+  description = "Start-ID für VMs (Server: start, start+1, ...; Agents: start+server_count, ...)"
+  type        = number
+  default     = 200
+}
+
+variable "datastore_id" {
+  description = "Proxmox Datastore für VM Disks"
   type        = string
+  default     = "local-zfs"
+}
+
+variable "snippets_datastore" {
+  description = "Proxmox Datastore für Snippets"
+  type        = string
+  default     = "local"
+}
+
+variable "network_bridge" {
+  description = "Proxmox Network Bridge"
+  type        = string
+  default     = "vmbr0"
 }
 
 variable "ssh_keys" {
@@ -41,6 +66,12 @@ variable "server_memory" {
   default     = 4096
 }
 
+variable "server_disk_size" {
+  description = "Disk Größe in GB pro Server Node"
+  type        = number
+  default     = 20
+}
+
 variable "server_butane_config_path" {
   description = "Pfad zur Butane Config für Server Nodes"
   type        = string
@@ -65,22 +96,15 @@ variable "agent_memory" {
   default     = 2048
 }
 
+variable "agent_disk_size" {
+  description = "Disk Größe in GB pro Agent Node"
+  type        = number
+  default     = 20
+}
+
 variable "agent_butane_config_path" {
   description = "Pfad zur Butane Config für Agent Nodes"
   type        = string
-}
-
-# Netzwerk
-variable "network_name" {
-  description = "Name des libvirt Netzwerks"
-  type        = string
-  default     = "default"
-}
-
-variable "graphics_type" {
-  description = "Grafik-Typ (spice oder vnc)"
-  type        = string
-  default     = "spice"
 }
 
 # k3s-Konfiguration
@@ -107,4 +131,25 @@ variable "agent_extra_config" {
   description = "Zusätzliche Config für Agent Nodes"
   type        = string
   default     = ""
+}
+
+# Netzwerk (statische IPs)
+variable "server_ips" {
+  description = "Liste der statischen IPs für Server Nodes (mit CIDR, z.B. 192.168.1.100/24)"
+  type        = list(string)
+}
+
+variable "agent_ips" {
+  description = "Liste der statischen IPs für Agent Nodes (mit CIDR, z.B. 192.168.1.101/24)"
+  type        = list(string)
+}
+
+variable "gateway" {
+  description = "Gateway IP-Adresse"
+  type        = string
+}
+
+variable "dns" {
+  description = "DNS Server IP-Adresse"
+  type        = string
 }
