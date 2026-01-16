@@ -87,37 +87,3 @@ resource "null_resource" "fetch_kubeconfig" {
   }
 }
 
-# FluxCD Bootstrap
-resource "null_resource" "flux_bootstrap" {
-  depends_on = [null_resource.fetch_kubeconfig]
-
-  triggers = {
-    server_ip = module.k3s_cluster.first_server_ip
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-      export KUBECONFIG=$HOME/.kube/k3s-dev-config
-      echo "Warte bis Nodes ready sind..."
-      for i in $(seq 1 60); do
-        if kubectl get nodes 2>/dev/null | grep -q " Ready"; then
-          echo "Nodes gefunden, warte auf alle..."
-          sleep 10
-          kubectl get nodes
-          break
-        fi
-        echo "Warte auf Nodes... ($i/60)"
-        sleep 5
-      done
-      echo "Bootstrap FluxCD..."
-      flux bootstrap github \
-        --owner=${var.github_owner} \
-        --repository=${var.github_repository} \
-        --branch=${var.github_branch} \
-        --path=./kubernetes \
-        --personal
-      echo "✓ FluxCD erfolgreich gebootstrapped!"
-    EOT
-  }
-}

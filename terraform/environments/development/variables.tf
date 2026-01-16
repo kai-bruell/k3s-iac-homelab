@@ -164,19 +164,3 @@ variable "k3s_token" {
   sensitive   = true
 }
 
-# FluxCD / GitHub
-variable "github_owner" {
-  description = "GitHub Username oder Organisation"
-  type        = string
-}
-
-variable "github_repository" {
-  description = "GitHub Repository Name"
-  type        = string
-}
-
-variable "github_branch" {
-  description = "GitHub Branch"
-  type        = string
-  default     = "main"
-}
