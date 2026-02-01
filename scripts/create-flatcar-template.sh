@@ -10,7 +10,7 @@ PROXMOX_NODE="${TF_VAR_proxmox_node}"
 # Flatcar settings
 FLATCAR_CHANNEL="stable"
 FLATCAR_VERSION="current"
-STORAGE="local-zfs"
+STORAGE="${TF_VAR_datastore_id:-local-lvm}"
 
 echo "=== Flatcar Template Setup ==="
 echo "Proxmox: ${PROXMOX_USER}@${PROXMOX_HOST}"
@@ -62,7 +62,7 @@ qm create "$TEMPLATE_ID" \
   --ostype l26
 
 echo ">>> Importing disk to $STORAGE..."
-qm importdisk "$TEMPLATE_ID" "$IMAGE_PATH" "$STORAGE" --format qcow2
+qm importdisk "$TEMPLATE_ID" "$IMAGE_PATH" "$STORAGE"
 
 echo ">>> Configuring VM..."
 qm set "$TEMPLATE_ID" --scsihw virtio-scsi-pci --scsi0 "${STORAGE}:vm-${TEMPLATE_ID}-disk-0"
