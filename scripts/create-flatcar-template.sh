@@ -43,12 +43,50 @@ if qm status "$TEMPLATE_ID" &>/dev/null; then
   exit 1
 fi
 
-# Check if image already exists (manually uploaded)
-if [ -f "$IMAGE_PATH" ]; then
+# Function to wait for internet connectivity
+wait_for_internet() {
+  local host="stable.release.flatcar-linux.net"
+  while ! ping -c 1 -W 5 "$host" &>/dev/null; do
+    echo ">>> Waiting for internet connection..."
+    sleep 5
+  done
+}
+
+# Function to download with retry
+download_with_retry() {
+  local url="$1"
+  local output="$2"
+  local max_retries=0  # 0 = infinite retries
+  local retry_wait=10
+
+  echo ">>> Downloading Flatcar image (will retry on failure)..."
+  while true; do
+    wait_for_internet
+
+    if wget --continue --tries=3 --waitretry=5 --retry-connrefused \
+            --progress=bar:force -O "$output" "$url"; then
+      # Verify download is not empty
+      if [ -s "$output" ]; then
+        echo ">>> Download complete!"
+        return 0
+      else
+        echo ">>> Error: Downloaded file is empty, retrying..."
+        rm -f "$output"
+      fi
+    else
+      echo ">>> Download failed, waiting ${retry_wait}s before retry..."
+    fi
+
+    sleep "$retry_wait"
+  done
+}
+
+# Check if image already exists and is valid
+if [ -f "$IMAGE_PATH" ] && [ -s "$IMAGE_PATH" ]; then
   echo ">>> Image already exists at $IMAGE_PATH, skipping download"
 else
-  echo ">>> Downloading Flatcar image..."
-  wget -q --show-progress -O "$IMAGE_PATH" "$FLATCAR_URL"
+  rm -f "$IMAGE_PATH"  # Remove empty/corrupt file if exists
+  download_with_retry "$FLATCAR_URL" "$IMAGE_PATH"
 fi
 
 echo ">>> Creating VM $TEMPLATE_ID..."

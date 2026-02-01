@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load .env from repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+if [ -f "$REPO_ROOT/.env" ]; then
+    set -a
+    source "$REPO_ROOT/.env"
+    set +a
+    echo "Loaded .env from $REPO_ROOT"
+fi
+
 # Konfiguration
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/k3s-dev-config}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
