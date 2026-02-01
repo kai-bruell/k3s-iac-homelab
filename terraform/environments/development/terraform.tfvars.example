@@ -1,0 +1,43 @@
+# Proxmox Verbindung
+proxmox_endpoint = "https://192.168.1.99:8006"
+proxmox_username = "root@pam"
+proxmox_password = "your-proxmox-password"
+proxmox_node     = "pve"
+proxmox_insecure = true
+
+# Flatcar Template (erstellt mit scripts/create-flatcar-template.sh)
+flatcar_template_id = 9000
+
+# VM Konfiguration
+vm_id_start    = 200
+datastore_id   = "local-lvm"
+network_bridge = "vmbr0"
+
+# Cluster
+cluster_name = "k3s-dev"
+
+# SSH Keys (dein Public Key)
+ssh_keys = [
+  "ssh-ed25519 AAAA... your-key-name"
+]
+
+# Server Nodes
+server_count     = 1
+server_vcpu      = 2
+server_memory    = 4096
+server_disk_size = 20
+
+# Agent Nodes
+agent_count     = 2
+agent_vcpu      = 2
+agent_memory    = 2048
+agent_disk_size = 20
+
+# Netzwerk (statische IPs mit CIDR)
+server_ips = ["192.168.1.100/24"]
+agent_ips  = ["192.168.1.101/24", "192.168.1.102/24"]
+gateway    = "192.168.1.1"
+dns        = "192.168.1.1"
+
+# k3s Token (optional - wird generiert wenn leer)
+# k3s_token = "your-secret-token"
