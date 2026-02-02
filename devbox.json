@@ -3,7 +3,10 @@
     "opentofu@1.11.2",
     "kubectl@1.35.0",
     "butane@0.25.1",
-    "fluxcd@2.7.5"
+    "fluxcd@2.7.5",
+    "mtools@4.0.49",
+    "packer@1.14.3",
+    "ansible@2.20.0"
   ],
   "shell": {
     "init_hook": [

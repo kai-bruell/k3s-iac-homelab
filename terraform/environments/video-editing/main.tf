@@ -1,0 +1,109 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    proxmox = {
+      source  = "bpg/proxmox"
+      version = ">= 0.70.0"
+    }
+  }
+}
+
+provider "proxmox" {
+  endpoint = var.proxmox_endpoint
+  username = var.proxmox_username
+  password = var.proxmox_password
+  insecure = var.proxmox_insecure
+
+  ssh {
+    agent = true
+  }
+}
+
+resource "proxmox_virtual_environment_vm" "video_editing" {
+  name      = var.vm_name
+  node_name = var.proxmox_node
+  vm_id     = var.vm_id
+
+  description = "Video Editing Workstation - NixOS with NVIDIA 470 Legacy Driver"
+  tags        = ["video-editing", "nixos", "workstation"]
+
+  # Clone from NixOS template (built via build-image.sh)
+  clone {
+    vm_id = var.template_vm_id
+    full  = true
+  }
+
+  # CPU
+  cpu {
+    cores = var.cpu_cores
+    type  = "host"
+  }
+
+  # RAM
+  memory {
+    dedicated = var.memory_mb
+  }
+
+  # Disk wird vom Template geklont, nur Groesse anpassen falls noetig
+  disk {
+    datastore_id = var.datastore_id
+    interface    = "scsi0"
+    size         = var.disk_size_gb
+    file_format  = "raw"
+  }
+
+  # Netzwerk
+  network_device {
+    bridge = var.network_bridge
+    model  = "virtio"
+  }
+
+  # VGA fuer Desktop-Nutzung (deaktiviert bei GPU Passthrough)
+  dynamic "vga" {
+    for_each = var.vga_type != "none" ? [1] : []
+    content {
+      type   = var.vga_type
+      memory = var.vga_memory
+    }
+  }
+
+  # NVIDIA GPU Passthrough
+  dynamic "hostpci" {
+    for_each = var.gpu_passthrough_enabled ? [1] : []
+    content {
+      device = "hostpci0"
+      id     = var.gpu_pci_id
+      pcie   = true
+      rombar = true
+    }
+  }
+
+  dynamic "hostpci" {
+    for_each = var.gpu_passthrough_enabled ? [1] : []
+    content {
+      device = "hostpci1"
+      id     = var.gpu_audio_pci_id
+      pcie   = true
+    }
+  }
+
+  # Agent
+  agent {
+    enabled = true
+  }
+
+  # UEFI Boot
+  bios = "ovmf"
+
+  # q35 Machine Type fuer PCIe Passthrough
+  machine = "q35"
+
+  efi_disk {
+    datastore_id = var.datastore_id
+    type         = "4m"
+  }
+
+  operating_system {
+    type = "l26"
+  }
+}
