@@ -1,0 +1,18 @@
+# Proxmox Verbindung kommt aus .env (TF_VAR_proxmox_*)
+# Template VM ID kommt aus .env (TF_VAR_template_vm_id)
+
+# VM Konfiguration (environment-spezifisch)
+vm_name      = "video-editing"
+vm_id        = 300
+cpu_cores    = 4
+memory_mb    = 8192
+disk_size_gb = 50
+
+# VGA fuer Desktop-Nutzung (auf "none" setzen bei GPU Passthrough)
+vga_type   = "qxl"
+vga_memory = 64
+
+# GPU Passthrough (optional)
+gpu_passthrough_enabled = false
+gpu_pci_id              = "0000:00:02.0"
+gpu_audio_pci_id        = "0000:00:02.1"
