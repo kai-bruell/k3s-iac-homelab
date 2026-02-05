@@ -1,0 +1,91 @@
+name: Build NixOS Video-Editing Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/environments/video-editing/nixos/**'
+      - '.github/workflows/build-nixos-image.yml'
+  pull_request:
+    paths:
+      - 'terraform/environments/video-editing/nixos/**'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create a GitHub Release'
+        type: boolean
+        default: false
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: ${{ vars.CACHIX_CACHE_NAME }}
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build Proxmox Image
+        env:
+          NIX_BUILD_CORES: 0  # Alle verfuegbaren Cores nutzen
+        run: |
+          nix-shell -p nixos-generators --run \
+            "nixos-generate -f proxmox -c terraform/environments/video-editing/nixos/configuration.nix -o result"
+
+      - name: Prepare artifact
+        id: prepare
+        run: |
+          # Find the VMA file
+          VMA_FILE=$(find result/ -name "*.vma.zst" -o -name "*.vma" | head -1)
+
+          if [ -z "$VMA_FILE" ]; then
+            echo "Error: No VMA file found in result/"
+            ls -la result/
+            exit 1
+          fi
+
+          # Get filename and create output directory
+          FILENAME=$(basename "$VMA_FILE")
+          mkdir -p output
+          cp "$VMA_FILE" "output/$FILENAME"
+
+          # Generate checksum
+          cd output
+          sha256sum "$FILENAME" > SHA256SUMS
+
+          echo "filename=$FILENAME" >> $GITHUB_OUTPUT
+          echo "filepath=output/$FILENAME" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixos-video-editing
+          path: output/
+          retention-days: 7
+
+      - name: Upload to Release
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/${{ steps.prepare.outputs.filename }}
+            output/SHA256SUMS
+          tag_name: ${{ github.event_name == 'release' && github.ref_name || format('nixos-image-{0}', github.run_number) }}
+          generate_release_notes: ${{ github.event_name == 'workflow_dispatch' }}
