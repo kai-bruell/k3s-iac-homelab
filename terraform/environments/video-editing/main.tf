@@ -44,13 +44,9 @@ resource "proxmox_virtual_environment_vm" "video_editing" {
     dedicated = var.memory_mb
   }
 
-  # Disk wird vom Template geklont, nur Groesse anpassen falls noetig
-  disk {
-    datastore_id = var.datastore_id
-    interface    = "scsi0"
-    size         = var.disk_size_gb
-    file_format  = "raw"
-  }
+  # Disk kommt vom Template (virtio0), keine extra Disk erstellen
+  # Boot-Reihenfolge setzen
+  boot_order = ["virtio0"]
 
   # Netzwerk
   network_device {
@@ -92,16 +88,8 @@ resource "proxmox_virtual_environment_vm" "video_editing" {
     enabled = true
   }
 
-  # UEFI Boot
-  bios = "ovmf"
-
   # q35 Machine Type fuer PCIe Passthrough
   machine = "q35"
-
-  efi_disk {
-    datastore_id = var.datastore_id
-    type         = "4m"
-  }
 
   operating_system {
     type = "l26"
