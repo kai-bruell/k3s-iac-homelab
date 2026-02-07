@@ -21,9 +21,10 @@
     }
   ];
 
-  # GNOME Desktop
+  # GNOME Desktop (X11, kein Wayland - Sunshine braucht X11 fuer Cursor-Capture)
   services.xserver.enable = true;
   services.xserver.displayManager.gdm.enable = true;
+  services.xserver.displayManager.gdm.wayland = false;
   services.xserver.desktopManager.gnome.enable = true;
   services.displayManager.autoLogin = {
     enable = true;
