@@ -25,6 +25,12 @@ jobs:
       contents: write
 
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          sudo docker image prune --all --force
+          df -h /
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -45,6 +51,7 @@ jobs:
       - name: Build Proxmox Image
         env:
           NIX_BUILD_CORES: 0  # Alle verfuegbaren Cores nutzen
+          NIXPKGS_ALLOW_UNFREE: 1  # NVIDIA Treiber ist unfree
         run: |
           nix-shell -p nixos-generators --run \
             "nixos-generate -f proxmox -c terraform/environments/video-editing/nixos/configuration.nix -o result"
