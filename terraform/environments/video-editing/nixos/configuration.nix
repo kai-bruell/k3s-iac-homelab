@@ -6,6 +6,10 @@
   # Kernel
   boot.kernelPackages = pkgs.linuxPackages_6_6;
 
+  # Unfree Pakete erlauben (NVIDIA Treiber)
+  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.nvidia.acceptLicense = true;
+
   # NVIDIA GTX 760 (Kepler) mit Dummy HDMI Plug
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.graphics.enable = true;
