@@ -74,14 +74,7 @@ resource "proxmox_virtual_environment_vm" "video_editing" {
     }
   }
 
-  dynamic "hostpci" {
-    for_each = var.gpu_passthrough_enabled ? [1] : []
-    content {
-      device = "hostpci1"
-      id     = var.gpu_audio_pci_id
-      pcie   = true
-    }
-  }
+  # GPU Audio wird automatisch mit durchgereicht (Multifunction Device)
 
   # Agent
   agent {
