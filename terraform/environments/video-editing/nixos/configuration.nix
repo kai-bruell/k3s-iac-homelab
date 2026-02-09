@@ -1,41 +1,68 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, ... }:
 
 {
-  imports = [ ./hardware-configuration.nix ];
+  imports =
+    [
+      ./hardware-configuration.nix
+      ./smb-mount.nix
+    ];
 
-  # Kernel
-  boot.kernelPackages = pkgs.linuxPackages_6_6;
+  # Bootloader Einstellungen für UEFI (Proxmox OVMF)
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
-  # Unfree Pakete erlauben (NVIDIA Treiber)
+  # --- NVIDIA & KERNEL BLOCK ---
+
+  # Unfree Software für NVIDIA erlauben
   nixpkgs.config.allowUnfree = true;
   nixpkgs.config.nvidia.acceptLicense = true;
 
-  # NVIDIA GTX 760 (Kepler) mit Dummy HDMI Plug
+  # Kernel 6.6 LTS erzwingen (NVIDIA 470 braucht diesen Kernel)
+  boot.kernelPackages = pkgs.linuxPackages_6_6;
+
+  # NVIDIA Treiber für GTX 760 (Kepler)
   services.xserver.videoDrivers = [ "nvidia" ];
-  hardware.graphics.enable = true;
   hardware.nvidia = {
-    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
+    package = config.boot.kernelPackages.nvidia_x11_legacy470;
     modesetting.enable = true;
+    open = false;
+    powerManagement.enable = false; # Sicherer für Passthrough
   };
 
-  # 1080p erzwingen (Dummy HDMI Plug)
-  services.xserver.screenSection = ''
-    Option "MetaModes" "1920x1080 +0+0"
-  '';
+  # Proxmox Guest Agent für ordentliches Shutdown/IP-Anzeige
+  services.qemuGuest.enable = true;
 
-  # Wayland deaktivieren (470er Treiber unterstuetzt kein Wayland)
-  services.xserver.displayManager.gdm.wayland = false;
+  # --- DESKTOP & USER BLOCK ---
 
-  # GNOME Desktop
+  # X11 und XFCE Desktop
   services.xserver.enable = true;
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
-  services.displayManager.autoLogin = {
-    enable = true;
-    user = "user";
+  services.xserver.displayManager.lightdm.enable = true;
+  services.displayManager.autoLogin.enable = true;
+  services.displayManager.autoLogin.user = "kai";
+  services.xserver.desktopManager.xfce.enable = true;
+
+  # Deutsches Tastaturlayout
+  services.xserver.xkb.layout = "de";
+  console.keyMap = "de";
+
+  # User "Kai Brüll"
+  users.users.kai = {
+    isNormalUser = true;
+    description = "Kai Brüll";
+    extraGroups = [ "networkmanager" "wheel" "video" "input" ];
+    packages = with pkgs; [
+      firefox
+      # Weitere Pakete hier hinzufügen
+    ];
   };
 
-  # Sunshine (Remote Desktop Streaming)
+  # Distrobox + Podman für AppImages und Linux-native Apps
+  virtualisation.podman.enable = true;
+  environment.systemPackages = with pkgs; [
+    distrobox
+  ];
+
+  # Sunshine Streaming Server
   services.sunshine = {
     enable = true;
     autoStart = true;
@@ -43,44 +70,37 @@
     openFirewall = true;
   };
 
-  # User
-  users.users.user = {
-    isNormalUser = true;
-    extraGroups = [ "wheel" "video" "render" ];
-    initialPassword = "changeme";
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBoUXRrEIdgqYhCtpO5CxxBpyPtLtJ7a89zB+o6j/koD user@fedora"
-    ];
-    linger = true;
-  };
+  # uinput für Sunshine virtuelle Maus/Tastatur
+  services.udev.extraRules = ''
+    KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput", GROUP="input", MODE="0660"
+  '';
 
-  # Pakete
-  environment.systemPackages = with pkgs; [
-    kdenlive
-    git
-    distrobox
-    pciutils
-  ];
+  # --- ORIGINALER REST ---
 
-  # Kdenlive Settings
-  systemd.services.kdenlive-setup = {
-    description = "Clone Kdenlive portable dots";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "user";
-      ExecStart = "${pkgs.bash}/bin/bash -c '[ -d /home/user/Kdenlive ] || ${pkgs.git}/bin/git clone https://github.com/kai-bruell/kdenlive-portable-dots.git /home/user/Kdenlive'";
-      RemainAfterExit = true;
-    };
-  };
+  # Some programs need SUID wrappers, can be configured further or are
+  # started in user sessions.
+  # programs.mtr.enable = true;
+  # programs.gnupg.agent = {
+  #   enable = true;
+  #   enableSSHSupport = true;
+  # };
 
-  # Performance
-  powerManagement.cpuFreqGovernor = "performance";
+  # List services that you want to enable:
 
-  # SSH
+  # Enable the OpenSSH daemon.
   services.openssh.enable = true;
 
-  system.stateVersion = "24.11";
+  # Open ports in the firewall.
+  # networking.firewall.allowedTCPPorts = [ ... ];
+  # networking.firewall.allowedUDPPorts = [ ... ];
+  # Or disable the firewall altogether.
+  networking.firewall.enable = false;
+
+  # This value determines the NixOS release from which the default
+  # settings for stateful data, like file locations and database versions
+  # on your system were taken.
+  system.stateVersion = "25.11";
+
 }
+
+
