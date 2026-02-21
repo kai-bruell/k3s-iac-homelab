@@ -4,16 +4,16 @@ output "vm_id" {
 }
 
 output "vm_name" {
-  description = "VM Name"
+  description = "VM Name in Proxmox"
   value       = proxmox_virtual_environment_vm.vm.name
 }
 
-output "vm_ip" {
-  description = "Statische IP-Adresse der VM (nach nixos-rebuild)"
-  value       = local.static_ip
+output "bootstrap_ip" {
+  description = "Temporaere DHCP-IP der Bootstrap-VM (Debian, nur waehrend nixos-anywhere Deploy aktiv)"
+  value       = local.vm_ip
 }
 
-output "ssh_command" {
-  description = "SSH-Verbindungsbefehl"
-  value       = "ssh -i ${var.ssh_private_key_path} root@${local.static_ip}"
+output "ssh_hint" {
+  description = "SSH-Verbindung nach erfolgreichem Deploy (IP aus nixos/hosts/<host>/default.nix)"
+  value       = "ssh -i ${var.ssh_private_key_path} root@<static-ip-aus-flake>"
 }

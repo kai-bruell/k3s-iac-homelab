@@ -10,12 +10,6 @@ devbox.lock
 !*.tfvars.example
 .terraform.lock.hcl
 
-# Packer
-*.pkrvars.hcl
-!*.pkrvars.hcl.example
-packer_cache/
-**/downloaded_iso_path/
-
 # Ansible
 inventory.yml
 !inventory.yml.example

@@ -1,0 +1,32 @@
+# Kopiere diese Datei nach terraform.tfvars und passe die Werte an.
+# terraform.tfvars wird von .gitignore ignoriert (enthaelt Secrets).
+
+# --- Proxmox ---
+proxmox_endpoint = "https://192.168.178.10:8006"
+proxmox_username = "root@pam"
+proxmox_password = "dein-proxmox-passwort"
+proxmox_insecure = true
+proxmox_node     = "pve"
+
+# --- VM ---
+vm_id                 = 200
+bootstrap_template_id = 9000 # Debian cloud-init Template (einmalig auf Proxmox erstellt)
+datastore_id          = "local-zfs"
+network_bridge        = "vmbr0"
+vm_name               = "nixos-minimal"
+vcpu                  = 2
+sockets               = 1
+memory                = 2048
+disk_size             = 20
+
+# --- SSH ---
+# Muss mit authorized_keys in nixos/hosts/nixos-minimal/default.nix uebereinstimmen
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... user@host",
+]
+ssh_private_key_path = "~/.ssh/homelab-dev"
+
+# --- NixOS ---
+# Muss nixosConfigurations.<attr> in nixos/flake.nix entsprechen
+# Statische IP der VM: in nixos/hosts/nixos-minimal/default.nix einstellen
+nixos_system_attr = ".#nixos-minimal"

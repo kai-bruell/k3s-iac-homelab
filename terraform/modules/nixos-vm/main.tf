@@ -5,29 +5,24 @@ terraform {
       source  = "bpg/proxmox"
       version = ">= 0.70.0"
     }
-    null = {
-      source  = "hashicorp/null"
-      version = ">= 3.0"
-    }
   }
 }
 
-locals {
-  static_ip    = split("/", var.static_ip)[0]
-  prefix_length = split("/", var.static_ip)[1]
-
-  host_params_content = templatefile("${path.module}/templates/host-params.nix.tftpl", {
-    hostname          = var.hostname
-    ip_address        = local.static_ip
-    prefix_length     = local.prefix_length
-    gateway           = var.gateway
-    dns               = var.dns
-    ssh_keys          = var.ssh_keys
-    network_interface = var.network_interface
-  })
-}
-
-# --- VM klonen und konfigurieren ---
+# --- VM aus cloud-init Bootstrap-Image erstellen ---
+#
+# Vorbedingung (einmalige manuelle Einrichtung auf Proxmox):
+#   1. Debian Cloud Image herunterladen:
+#      wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2
+#   2. Als Proxmox-Template importieren (Beispiel VM-ID 9000):
+#      qm create 9000 --name "debian-cloud-init" --memory 1024 --net0 virtio,bridge=vmbr0
+#      qm importdisk 9000 debian-12-genericcloud-amd64.qcow2 local-zfs
+#      qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
+#      qm set 9000 --boot c --bootdisk scsi0 --ide2 local-zfs:cloudinit --agent 1
+#      qm template 9000
+#
+# nixos-anywhere verbindet sich per SSH auf dieses Bootstrap-Image,
+# bootet via kexec in den NixOS-Installer und installiert das finale System aus dem Flake.
+# Das Bootstrap-Image wird dabei komplett ueberschrieben.
 
 resource "proxmox_virtual_environment_vm" "vm" {
   name      = var.vm_name
@@ -38,7 +33,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   machine = "q35"
 
   clone {
-    vm_id = var.template_vm_id
+    vm_id = var.bootstrap_template_id # Debian cloud-init Template (VM ID 9000)
     full  = true
   }
 
@@ -46,33 +41,23 @@ resource "proxmox_virtual_environment_vm" "vm" {
     cores   = var.vcpu
     sockets = var.sockets
     type    = "host"
-    numa    = var.numa_enabled
   }
 
   memory {
     dedicated = var.memory
   }
 
-  # NUMA Topologie (nur wenn aktiviert)
-  dynamic "numa" {
-    for_each = var.numa_enabled ? [1] : []
-    content {
-      device    = "numa0"
-      cpus      = "0-${var.vcpu - 1}"
-      memory    = var.memory
-      hostnodes = "0"
-      policy    = "preferred"
-    }
-  }
-
+  # virtio-blk: erscheint als /dev/vda im Gast (passend zu disko.nix)
   disk {
     datastore_id = var.datastore_id
-    interface    = "scsi0"
+    interface    = "virtio0"
     size         = var.disk_size
     discard      = "on"
     ssd          = true
+    file_format  = "raw"
   }
 
+  # OVMF NVRAM (UEFI-Variablen, separates Proxmox-Objekt – kein Block-Device im Gast)
   efi_disk {
     datastore_id = var.datastore_id
     type         = "4m"
@@ -80,145 +65,64 @@ resource "proxmox_virtual_environment_vm" "vm" {
 
   network_device {
     bridge = var.network_bridge
+    model  = "virtio"
   }
 
   operating_system {
     type = "l26"
   }
 
+  # QEMU Guest Agent: noetig damit Proxmox die DHCP-IP melden kann
   agent {
     enabled = true
   }
-}
 
-# --- Flake + host-params.nix deployen und nixos-rebuild ausfuehren ---
-
-resource "null_resource" "deploy_nixos" {
-  depends_on = [proxmox_virtual_environment_vm.vm]
-
-  triggers = {
-    flake_hash = sha256(join("", [
-      for f in fileset(var.nixos_flake_dir, "**") :
-      filesha256("${var.nixos_flake_dir}/${f}")
-    ]))
-    host_params = sha256(local.host_params_content)
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      set -e
-
-      # --- 1. DHCP-IP per Guest Agent vom Proxmox-Host abfragen ---
-      echo "Frage VM-IP vom Proxmox Guest Agent ab..."
-      VM_IP=""
-      for i in $(seq 1 60); do
-        VM_IP=$(ssh -i ${var.ssh_private_key_path} -o StrictHostKeyChecking=no -o ConnectTimeout=5 \
-          root@${var.proxmox_ssh_host} \
-          "qm guest cmd ${var.vm_id} network-get-interfaces" 2>/dev/null | \
-          python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for iface in data:
-    if iface.get('name') == 'lo': continue
-    for addr in iface.get('ip-addresses', []):
-        if addr.get('ip-address-type') == 'ipv4':
-            print(addr['ip-address'])
-            sys.exit(0)
-" 2>/dev/null) || true
-
-        if [ -n "$VM_IP" ]; then
-          echo "VM-IP gefunden: $VM_IP"
-          break
-        fi
-        echo "Versuch $i/60 - Guest Agent meldet noch keine IP..."
-        sleep 5
-      done
-
-      if [ -z "$VM_IP" ]; then
-        echo "FEHLER: Keine IP vom Guest Agent nach 5 Minuten"
-        exit 1
-      fi
-
-      # --- 2. SSH auf DHCP-IP warten ---
-      echo "Warte auf SSH-Verbindung zu $VM_IP..."
-      ssh-keygen -R "$VM_IP" 2>/dev/null || true
-      for i in $(seq 1 60); do
-        if ssh -i ${var.ssh_private_key_path} \
-               -o StrictHostKeyChecking=no \
-               -o ConnectTimeout=5 \
-               -o BatchMode=yes \
-               root@"$VM_IP" "echo ok" 2>/dev/null; then
-          echo "SSH-Verbindung zu $VM_IP erfolgreich!"
-          break
-        fi
-        echo "Versuch $i/60 - SSH noch nicht bereit..."
-        sleep 5
-      done
-
-      # --- 3. Flake + host-params.nix hochladen ---
-      echo "Erstelle Flake-Archiv..."
-      TMPDIR=$(mktemp -d /tmp/nixos-deploy-XXXXXX)
-      cp -r ${var.nixos_flake_dir}/. "$TMPDIR/"
-      cat > "$TMPDIR/host-params.nix" << 'HOSTPARAMS'
-      ${local.host_params_content}
-      HOSTPARAMS
-
-      ARCHIVE=$(mktemp /tmp/nixos-flake-XXXXXX.tar.gz)
-      tar -czf "$ARCHIVE" -C "$TMPDIR" .
-
-      echo "Lade Flake hoch nach $VM_IP:/etc/nixos/..."
-      ssh -i ${var.ssh_private_key_path} \
-          -o StrictHostKeyChecking=no \
-          root@"$VM_IP" "rm -rf /etc/nixos/* && mkdir -p /etc/nixos"
-      scp -i ${var.ssh_private_key_path} \
-          -o StrictHostKeyChecking=no \
-          "$ARCHIVE" root@"$VM_IP":/tmp/nixos-flake.tar.gz
-      ssh -i ${var.ssh_private_key_path} \
-          -o StrictHostKeyChecking=no \
-          root@"$VM_IP" "tar -xzf /tmp/nixos-flake.tar.gz -C /etc/nixos/ && rm /tmp/nixos-flake.tar.gz"
-
-      rm -rf "$TMPDIR" "$ARCHIVE"
-      echo "Flake erfolgreich hochgeladen!"
-
-      # --- 4. Git init (Nix Flakes braucht Git) ---
-      echo "Initialisiere Git-Repo in /etc/nixos/..."
-      ssh -i ${var.ssh_private_key_path} \
-          -o StrictHostKeyChecking=no \
-          root@"$VM_IP" \
-          "git config --global --add safe.directory /etc/nixos && git config --global user.email 'nix@localhost' && git config --global user.name 'NixOS' && cd /etc/nixos && git init && git add -A && git commit -m 'nixos flake deploy' --allow-empty"
-      echo "Git-Repo initialisiert!"
-
-      # --- 5. nixos-rebuild switch (IP-Wechsel bricht SSH ab) ---
-      echo "Starte nixos-rebuild switch auf $VM_IP..."
-      echo "HINWEIS: IP wechselt von $VM_IP (DHCP) auf ${local.static_ip} (statisch)"
-      ssh -i ${var.ssh_private_key_path} \
-          -o StrictHostKeyChecking=no \
-          root@"$VM_IP" \
-          "nohup nixos-rebuild switch --flake /etc/nixos#${var.nixos_flake_target} > /tmp/nixos-rebuild.log 2>&1 &"
-
-      echo "Warte 30s bis nixos-rebuild laeuft..."
-      sleep 30
-
-      # --- 6. SSH auf statischer IP warten ---
-      echo "Warte auf SSH unter ${local.static_ip}..."
-      ssh-keygen -R ${local.static_ip} 2>/dev/null || true
-      for i in $(seq 1 60); do
-        if ssh -i ${var.ssh_private_key_path} \
-               -o StrictHostKeyChecking=no \
-               -o ConnectTimeout=5 \
-               -o BatchMode=yes \
-               root@${local.static_ip} "echo ok" 2>/dev/null; then
-          echo "nixos-rebuild abgeschlossen! VM erreichbar unter ${local.static_ip}"
-          exit 0
-        fi
-        echo "Versuch $i/60 - Warte auf ${local.static_ip}..."
-        sleep 10
-      done
-      echo "FEHLER: VM nach nixos-rebuild nicht unter ${local.static_ip} erreichbar"
-      exit 1
-    EOT
-    environment = {
-      SSH_AUTH_SOCK = ""
+  # Cloud-init: SSH-Key injecten, DHCP fuer nixos-anywhere Deploy
+  # Nach nixos-anywhere bekommt die VM die statische IP aus dem Nix-Flake
+  initialization {
+    ip_config {
+      ipv4 { address = "dhcp" }
+    }
+    user_account {
+      username = "root"
+      keys     = var.ssh_public_keys
     }
   }
+}
+
+# --- Erste nicht-loopback IPv4 der VM ermitteln ---
+# bpg/proxmox meldet alle IPs via QEMU Guest Agent sobald die VM gebootet hat
+locals {
+  vm_ip = [
+    for ip in flatten(proxmox_virtual_environment_vm.vm.ipv4_addresses) :
+    ip if !startswith(ip, "127.")
+  ][0]
+}
+
+# --- NixOS via nixos-anywhere installieren ---
+#
+# Was nixos-anywhere macht:
+#   1. Laedt kexec-Tarball auf die Bootstrap-VM (Debian)
+#   2. Fuehrt kexec aus: VM bootet in NixOS-Installer (kein Reboot der Hardware)
+#   3. Fuehrt disko aus: partitioniert /dev/vda deklarativ (Konfiguration aus Flake)
+#   4. Installiert NixOS aus dem Flake via nixos-install
+#   5. Reboot: VM startet mit finalem NixOS und statischer IP aus dem Flake
+#
+# Voraussetzung lokal: nix muss installiert sein (nixos-anywhere wird via `nix run` aufgerufen)
+# Referenz: https://github.com/nix-community/nixos-anywhere
+
+module "nixos_anywhere" {
+  source = "github.com/nix-community/nixos-anywhere//terraform/all-in-one"
+
+  # Flake-Attribut des Zielsystems (muss in nixos/flake.nix definiert sein)
+  nixos_system_attr = var.nixos_system_attr
+
+  # Bootstrap-VM IP (DHCP, temporaer – nach Install hat die VM die statische IP aus dem Flake)
+  target_host = local.vm_ip
+
+  # Eindeutige ID: triggert Reinstall wenn sich die VM-ID aendert (d.h. VM wurde neu erstellt)
+  instance_id = tostring(proxmox_virtual_environment_vm.vm.id)
+
+  # Privater SSH-Key (Inhalt, nicht Pfad) fuer die Verbindung zur Bootstrap-VM
+  ssh_private_key = file(var.ssh_private_key_path)
 }
