@@ -1,0 +1,22 @@
+# Generiert von Terraform - nicht manuell editieren!
+{ config, pkgs, lib, ... }:
+
+{
+  networking.hostName = "${hostname}";
+
+  networking.useDHCP = false;
+  networking.interfaces.${network_interface} = {
+    ipv4.addresses = [{
+      address = "${ip_address}";
+      prefixLength = ${prefix_length};
+    }];
+  };
+  networking.defaultGateway = "${gateway}";
+  networking.nameservers = [ "${dns}" ];
+
+  users.users.root.openssh.authorizedKeys.keys = [
+%{ for key in ssh_keys ~}
+    "${key}"
+%{ endfor ~}
+  ];
+}

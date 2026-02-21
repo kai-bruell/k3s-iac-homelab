@@ -1,0 +1,15 @@
+proxmox_url             = "https://192.168.178.1:8006/api2/json"
+proxmox_username        = "root@pam"
+proxmox_password        = "your-password-here"
+proxmox_node            = "pve"
+proxmox_skip_tls_verify = true
+
+vm_id            = 9100
+iso_storage_pool = "local"
+storage_pool     = "local-zfs"
+disk_size        = "20G"
+memory           = 4096
+cores            = 4
+
+ssh_password = "packer"
+ssh_keys     = "ssh-ed25519 AAAA... your-key"
