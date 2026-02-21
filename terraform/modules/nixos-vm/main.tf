@@ -5,6 +5,10 @@ terraform {
       source  = "bpg/proxmox"
       version = ">= 0.70.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0"
+    }
   }
 }
 
@@ -15,9 +19,9 @@ terraform {
 #      wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2
 #   2. Als Proxmox-Template importieren (Beispiel VM-ID 9000):
 #      qm create 9000 --name "debian-cloud-init" --memory 1024 --net0 virtio,bridge=vmbr0
-#      qm importdisk 9000 debian-12-genericcloud-amd64.qcow2 local-zfs
-#      qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
-#      qm set 9000 --boot c --bootdisk scsi0 --ide2 local-zfs:cloudinit --agent 1
+#      qm importdisk 9000 debian-12-genericcloud-amd64.qcow2 local-lvm
+#      qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9000-disk-0
+#      qm set 9000 --boot c --bootdisk scsi0 --ide2 local-lvm:cloudinit
 #      qm template 9000
 #
 # nixos-anywhere verbindet sich per SSH auf dieses Bootstrap-Image,
@@ -28,9 +32,6 @@ resource "proxmox_virtual_environment_vm" "vm" {
   name      = var.vm_name
   node_name = var.node_name
   vm_id     = var.vm_id
-
-  bios    = "ovmf"
-  machine = "q35"
 
   clone {
     vm_id = var.bootstrap_template_id # Debian cloud-init Template (VM ID 9000)
@@ -57,12 +58,6 @@ resource "proxmox_virtual_environment_vm" "vm" {
     file_format  = "raw"
   }
 
-  # OVMF NVRAM (UEFI-Variablen, separates Proxmox-Objekt – kein Block-Device im Gast)
-  efi_disk {
-    datastore_id = var.datastore_id
-    type         = "4m"
-  }
-
   network_device {
     bridge = var.network_bridge
     model  = "virtio"
@@ -72,13 +67,14 @@ resource "proxmox_virtual_environment_vm" "vm" {
     type = "l26"
   }
 
-  # QEMU Guest Agent: noetig damit Proxmox die DHCP-IP melden kann
+  # QEMU Guest Agent: Debian genericcloud hat diesen vorinstalliert.
+  # bpg/proxmox wartet bis der Agent die IP meldet – dauert ~60-90s (cloud-init laeuft im Hintergrund)
   agent {
     enabled = true
   }
 
-  # Cloud-init: SSH-Key injecten, DHCP fuer nixos-anywhere Deploy
-  # Nach nixos-anywhere bekommt die VM die statische IP aus dem Nix-Flake
+  # Cloud-init: SSH-Key injecten, DHCP
+  # Nach nixos-anywhere hat die VM die statische IP aus dem Nix-Flake (default.nix)
   initialization {
     ip_config {
       ipv4 { address = "dhcp" }
@@ -91,7 +87,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
 }
 
 # --- Erste nicht-loopback IPv4 der VM ermitteln ---
-# bpg/proxmox meldet alle IPs via QEMU Guest Agent sobald die VM gebootet hat
+# Wird vom QEMU Guest Agent gemeldet sobald cloud-init die Netzwerkkonfiguration abgeschlossen hat
 locals {
   vm_ip = [
     for ip in flatten(proxmox_virtual_environment_vm.vm.ipv4_addresses) :
@@ -99,30 +95,33 @@ locals {
   ][0]
 }
 
-# --- NixOS via nixos-anywhere installieren ---
+# --- NixOS via nixos-anywhere CLI installieren ---
 #
 # Was nixos-anywhere macht:
 #   1. Laedt kexec-Tarball auf die Bootstrap-VM (Debian)
 #   2. Fuehrt kexec aus: VM bootet in NixOS-Installer (kein Reboot der Hardware)
-#   3. Fuehrt disko aus: partitioniert /dev/vda deklarativ (Konfiguration aus Flake)
-#   4. Installiert NixOS aus dem Flake via nixos-install
+#   3. Fuehrt disko aus: partitioniert /dev/vda deklarativ (aus Flake)
+#   4. Installiert NixOS via nixos-install (Build auf der VM, kein lokales nix build)
 #   5. Reboot: VM startet mit finalem NixOS und statischer IP aus dem Flake
 #
-# Voraussetzung lokal: nix muss installiert sein (nixos-anywhere wird via `nix run` aufgerufen)
+# Voraussetzung lokal: nixos-anywhere Binary (via devbox bereitgestellt)
 # Referenz: https://github.com/nix-community/nixos-anywhere
 
-module "nixos_anywhere" {
-  source = "github.com/nix-community/nixos-anywhere//terraform/all-in-one"
+resource "null_resource" "nixos_anywhere" {
+  depends_on = [proxmox_virtual_environment_vm.vm]
 
-  # Flake-Attribut des Zielsystems (muss in nixos/flake.nix definiert sein)
-  nixos_system_attr = var.nixos_system_attr
+  # Reinstall triggern wenn die VM neu erstellt wurde
+  triggers = {
+    vm_id = proxmox_virtual_environment_vm.vm.id
+  }
 
-  # Bootstrap-VM IP (DHCP, temporaer – nach Install hat die VM die statische IP aus dem Flake)
-  target_host = local.vm_ip
-
-  # Eindeutige ID: triggert Reinstall wenn sich die VM-ID aendert (d.h. VM wurde neu erstellt)
-  instance_id = tostring(proxmox_virtual_environment_vm.vm.id)
-
-  # Privater SSH-Key (Inhalt, nicht Pfad) fuer die Verbindung zur Bootstrap-VM
-  ssh_private_key = file(var.ssh_private_key_path)
+  provisioner "local-exec" {
+    command = <<-EOT
+      nixos-anywhere \
+        --build-on-remote \
+        --flake "${var.nixos_flake_ref}" \
+        -i "${var.ssh_private_key_path}" \
+        root@${local.vm_ip}
+    EOT
+  }
 }

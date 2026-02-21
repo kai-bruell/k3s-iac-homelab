@@ -22,11 +22,11 @@ disk_size             = 20
 # --- SSH ---
 # Muss mit authorized_keys in nixos/hosts/nixos-minimal/default.nix uebereinstimmen
 ssh_public_keys = [
-  "ssh-ed25519 AAAA... user@host",
+  "ssh-ed25519 AAAA... user@host", # cat ~/.ssh/homelab-dev.pub
 ]
 ssh_private_key_path = "~/.ssh/homelab-dev"
 
 # --- NixOS ---
-# Muss nixosConfigurations.<attr> in nixos/flake.nix entsprechen
-# Statische IP der VM: in nixos/hosts/nixos-minimal/default.nix einstellen
-nixos_system_attr = ".#nixos-minimal"
+# Pfad relativ zu terraform/environments/nixos-minimal/ (wo `tofu apply` ausgefuehrt wird)
+# Statische IP der VM wird in nixos/hosts/nixos-minimal/default.nix konfiguriert
+nixos_flake_ref = "../../../nixos#nixos-minimal"

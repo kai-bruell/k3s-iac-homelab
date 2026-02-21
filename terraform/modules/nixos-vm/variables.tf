@@ -74,8 +74,9 @@ variable "ssh_private_key_path" {
 
 # --- NixOS ---
 
-variable "nixos_system_attr" {
-  description = "Flake-Attribut des NixOS-Systems (z.B. '.#nixos-minimal'). Muss in nixos/flake.nix definiert sein."
+variable "nixos_flake_ref" {
+  description = "Flake-Referenz fuer nixos-anywhere. Format: <pfad>#<nixosConfigurations-attr>. Pfad relativ zum Verzeichnis von `tofu apply`."
   type        = string
-  default     = ".#nixos-minimal"
+  # Relativ zu terraform/environments/<env>/ -> nixos/
+  default     = "../../../nixos#nixos-minimal"
 }

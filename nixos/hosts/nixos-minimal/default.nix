@@ -26,15 +26,15 @@
       # Matcht alle Ethernet-Interfaces (ens*, enp*, eth*) – portabel bei jedem PCI-Slot
       matchConfig.Name = "en*";
       networkConfig = {
-        Address = "192.168.178.60/24"; # <- Anpassen
-        Gateway = "192.168.178.1";     # <- Anpassen
-        DNS     = "192.168.178.1";     # <- Anpassen
+        Address = "192.168.178.156/24";
+        Gateway = "192.168.178.199";
+        DNS     = "192.168.178.199";
       };
     };
   };
 
   # SSH Public Keys fuer Root-Login (nur Keys, kein Passwort)
   users.users.root.openssh.authorizedKeys.keys = [
-    # "ssh-ed25519 AAAA... user@host"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
   ];
 }

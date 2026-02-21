@@ -4,7 +4,7 @@
 # Referenz: https://github.com/nix-community/disko
 #
 # Disk-Device: /dev/vda (virtio-blk in Proxmox, Terraform disk interface = "virtio0")
-# Layout: GPT | 512M EFI System Partition | Rest ext4 root
+# Layout: GPT | 1M BIOS-Boot-Partition (fuer GRUB) | Rest ext4 root
 
 { ... }:
 
@@ -18,15 +18,11 @@
           type = "gpt";
           partitions = {
 
-            ESP = {
-              size = "512M";
-              type = "EF00"; # EFI System Partition
-              content = {
-                type = "filesystem";
-                format = "vfat";
-                mountpoint = "/boot";
-                mountOptions = [ "fmask=0077" "dmask=0077" ];
-              };
+            # GRUB braucht bei GPT eine kleine BIOS-Boot-Partition (kein Filesystem)
+            boot = {
+              size = "1M";
+              type = "EF02"; # BIOS boot partition
+              priority = 1;
             };
 
             root = {

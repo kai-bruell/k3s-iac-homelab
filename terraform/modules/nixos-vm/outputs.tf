@@ -9,11 +9,11 @@ output "vm_name" {
 }
 
 output "bootstrap_ip" {
-  description = "Temporaere DHCP-IP der Bootstrap-VM (Debian, nur waehrend nixos-anywhere Deploy aktiv)"
+  description = "DHCP-IP der Bootstrap-VM (vom QEMU Guest Agent gemeldet)"
   value       = local.vm_ip
 }
 
 output "ssh_hint" {
-  description = "SSH-Verbindung nach erfolgreichem Deploy (IP aus nixos/hosts/<host>/default.nix)"
+  description = "SSH-Verbindung nach erfolgreichem Deploy (statische IP aus nixos/hosts/nixos-minimal/default.nix)"
   value       = "ssh -i ${var.ssh_private_key_path} root@<static-ip-aus-flake>"
 }

@@ -98,8 +98,8 @@ variable "ssh_private_key_path" {
 
 # --- NixOS ---
 
-variable "nixos_system_attr" {
-  description = "Flake-Attribut des Zielsystems. Muss nixosConfigurations.<attr> in nixos/flake.nix entsprechen."
+variable "nixos_flake_ref" {
+  description = "Flake-Referenz fuer nixos-anywhere. Format: <pfad>#<nixosConfigurations-attr>. Pfad relativ zum Verzeichnis von `tofu apply`."
   type        = string
-  default     = ".#nixos-minimal"
+  default     = "../../../nixos#nixos-minimal"
 }

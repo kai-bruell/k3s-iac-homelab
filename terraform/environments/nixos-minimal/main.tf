@@ -45,6 +45,5 @@ module "nixos_vm" {
   ssh_private_key_path = var.ssh_private_key_path
 
   # NixOS Flake
-  # Muss einem nixosConfigurations-Attribut in nixos/flake.nix entsprechen
-  nixos_system_attr = var.nixos_system_attr
+  nixos_flake_ref = var.nixos_flake_ref
 }

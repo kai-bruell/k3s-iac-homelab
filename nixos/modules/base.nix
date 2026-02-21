@@ -1,9 +1,9 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Boot (UEFI mit systemd-boot)
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  # Boot (BIOS/GRUB – kompatibel mit Proxmox BIOS-Clone-Workflow)
+  boot.loader.grub.enable = true;
+  boot.loader.grub.device = "/dev/vda";
 
   # Locale und Zeitzone
   time.timeZone = "Europe/Berlin";
