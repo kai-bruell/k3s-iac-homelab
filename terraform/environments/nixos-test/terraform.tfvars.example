@@ -1,0 +1,32 @@
+# Kopiere diese Datei nach terraform.tfvars und passe die Werte an.
+# terraform.tfvars wird von .gitignore ignoriert (enthaelt Secrets).
+
+# --- Proxmox ---
+proxmox_endpoint = "https://192.168.178.10:8006"
+proxmox_username = "root@pam"
+proxmox_password = "dein-proxmox-passwort"
+proxmox_insecure = true
+proxmox_node     = "pve"
+
+# --- VM ---
+vm_id                 = 201
+bootstrap_template_id = 9000 # Debian cloud-init Template (einmalig auf Proxmox erstellt)
+                              # Disk-Groesse am Template setzen: qm resize 9000 scsi0 20G
+snippet_datastore_id  = "local" # Storage fuer cloud-init Snippets (muss snippets content-type haben)
+network_bridge        = "vmbr0"
+vm_name               = "nixos-test"
+vcpu                  = 2
+sockets               = 1
+memory                = 2048
+
+# --- SSH ---
+# Muss mit authorized_keys in nixos/hosts/nixos-test/default.nix uebereinstimmen
+ssh_public_keys = [
+  "ssh-ed25519 AAAA... user@host", # cat ~/.ssh/homelab-dev.pub
+]
+ssh_private_key_path = "~/.ssh/homelab-dev"
+
+# --- NixOS ---
+# Pfad relativ zu terraform/environments/nixos-test/ (wo `tofu apply` ausgefuehrt wird)
+# Statische IP der VM wird in nixos/hosts/nixos-test/default.nix konfiguriert
+nixos_flake_ref = "../../../nixos#nixos-test"

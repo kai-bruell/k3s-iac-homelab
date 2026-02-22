@@ -29,6 +29,19 @@
         ];
       };
 
+      # Test-VM fuer Experimente und neue Features
+      # Deploy: tofu apply (via nixos-anywhere, kein Packer noetig)
+      nixos-test = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          disko.nixosModules.disko
+          ./modules/base.nix
+          ./modules/hardware-vm.nix
+          ./hosts/nixos-test/default.nix
+          ./hosts/nixos-test/disko.nix
+        ];
+      };
+
     };
   };
 }
