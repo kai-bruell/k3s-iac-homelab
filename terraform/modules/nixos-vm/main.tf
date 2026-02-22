@@ -12,6 +12,37 @@ terraform {
   }
 }
 
+# --- cloud-init user-data: qemu-guest-agent installieren ---
+#
+# Vorbedingung: Snippets auf Proxmox local Storage aktivieren (einmalig):
+#   pvesm set local --content snippets,iso,vztmpl,backup
+#
+# Warum: Standard cloud-init Images (Debian, Ubuntu) haben qemu-guest-agent
+# nicht vorinstalliert. Proxmox braucht ihn um die VM-IP abzufragen.
+
+resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
+  content_type = "snippets"
+  datastore_id = "local"
+  node_name    = var.node_name
+
+  source_raw {
+    file_name = "nixos-bootstrap-${var.vm_name}.yaml"
+    # WICHTIG: user_data_file_id ueberschreibt Proxmox's eigene User-Data-Generierung.
+    # SSH-Keys und qemu-guest-agent muessen daher beide hier definiert werden.
+    data = <<-EOF
+      #cloud-config
+      users:
+        - name: root
+          ssh_authorized_keys: ${jsonencode(var.ssh_public_keys)}
+      packages:
+        - qemu-guest-agent
+      runcmd:
+        - systemctl enable qemu-guest-agent
+        - systemctl start qemu-guest-agent
+      EOF
+  }
+}
+
 # --- VM aus cloud-init Bootstrap-Image erstellen ---
 #
 # Vorbedingung (einmalige manuelle Einrichtung auf Proxmox):
@@ -26,7 +57,7 @@ terraform {
 #
 # nixos-anywhere verbindet sich per SSH auf dieses Bootstrap-Image,
 # bootet via kexec in den NixOS-Installer und installiert das finale System aus dem Flake.
-# Das Bootstrap-Image wird dabei komplett ueberschrieben.
+# NixOS ueberschreibt das geklonte Debian-Disk (/dev/sda) komplett via disko.
 
 resource "proxmox_virtual_environment_vm" "vm" {
   name      = var.vm_name
@@ -34,7 +65,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
   vm_id     = var.vm_id
 
   clone {
-    vm_id = var.bootstrap_template_id # Debian cloud-init Template (VM ID 9000)
+    vm_id = var.bootstrap_template_id
     full  = true
   }
 
@@ -48,15 +79,10 @@ resource "proxmox_virtual_environment_vm" "vm" {
     dedicated = var.memory
   }
 
-  # virtio-blk: erscheint als /dev/vda im Gast (passend zu disko.nix)
-  disk {
-    datastore_id = var.datastore_id
-    interface    = "virtio0"
-    size         = var.disk_size
-    discard      = "on"
-    ssd          = true
-    file_format  = "raw"
-  }
+  # Kein disk-Block: Disk-Groesse wird einmalig am Template (VM 9000) gesetzt:
+  #   qm resize 9000 scsi0 20G
+  # Ein Terraform disk-Block wuerde scsi0 als nachgelagerten Update-Step resizen –
+  # das passiert NACH nixos-anywhere und korrumpiert das laufende NixOS-System.
 
   network_device {
     bridge = var.network_bridge
@@ -67,27 +93,23 @@ resource "proxmox_virtual_environment_vm" "vm" {
     type = "l26"
   }
 
-  # QEMU Guest Agent: Debian genericcloud hat diesen vorinstalliert.
-  # bpg/proxmox wartet bis der Agent die IP meldet – dauert ~60-90s (cloud-init laeuft im Hintergrund)
+  # QEMU Guest Agent: wird per cloud-init user-data installiert (s.o.)
   agent {
     enabled = true
   }
 
-  # Cloud-init: SSH-Key injecten, DHCP
-  # Nach nixos-anywhere hat die VM die statische IP aus dem Nix-Flake (default.nix)
+  # Cloud-init: user-data enthaelt SSH-Keys + qemu-guest-agent Installation
   initialization {
+    user_data_file_id = proxmox_virtual_environment_file.cloud_init_user_data.id
+
     ip_config {
       ipv4 { address = "dhcp" }
-    }
-    user_account {
-      username = "root"
-      keys     = var.ssh_public_keys
     }
   }
 }
 
 # --- Erste nicht-loopback IPv4 der VM ermitteln ---
-# Wird vom QEMU Guest Agent gemeldet sobald cloud-init die Netzwerkkonfiguration abgeschlossen hat
+# Wird vom QEMU Guest Agent gemeldet sobald cloud-init abgeschlossen hat
 locals {
   vm_ip = [
     for ip in flatten(proxmox_virtual_environment_vm.vm.ipv4_addresses) :
@@ -98,7 +120,7 @@ locals {
 # --- NixOS via nixos-anywhere CLI installieren ---
 #
 # Was nixos-anywhere macht:
-#   1. Laedt kexec-Tarball auf die Bootstrap-VM (Debian)
+#   1. Laedt kexec-Tarball auf die Bootstrap-VM
 #   2. Fuehrt kexec aus: VM bootet in NixOS-Installer (kein Reboot der Hardware)
 #   3. Fuehrt disko aus: partitioniert /dev/vda deklarativ (aus Flake)
 #   4. Installiert NixOS via nixos-install (Build auf der VM, kein lokales nix build)
@@ -110,7 +132,6 @@ locals {
 resource "null_resource" "nixos_anywhere" {
   depends_on = [proxmox_virtual_environment_vm.vm]
 
-  # Reinstall triggern wenn die VM neu erstellt wurde
   triggers = {
     vm_id = proxmox_virtual_environment_vm.vm.id
   }
@@ -118,9 +139,8 @@ resource "null_resource" "nixos_anywhere" {
   provisioner "local-exec" {
     command = <<-EOT
       nixos-anywhere \
-        --build-on-remote \
         --flake "${var.nixos_flake_ref}" \
-        -i "${var.ssh_private_key_path}" \
+        -i "${pathexpand(var.ssh_private_key_path)}" \
         root@${local.vm_ip}
     EOT
   }

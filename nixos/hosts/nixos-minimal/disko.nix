@@ -3,7 +3,8 @@
 #
 # Referenz: https://github.com/nix-community/disko
 #
-# Disk-Device: /dev/vda (virtio-blk in Proxmox, Terraform disk interface = "virtio0")
+# Disk-Device: /dev/sda (scsi0 des Debian-Bootstrap-Templates, wird von nixos-anywhere
+# komplett ueberschrieben – kein separates virtio0-Disk noetig, kein Boot-Order-Problem)
 # Layout: GPT | 1M BIOS-Boot-Partition (fuer GRUB) | Rest ext4 root
 
 { ... }:
@@ -12,7 +13,7 @@
   disko.devices = {
     disk = {
       main = {
-        device = "/dev/vda";
+        device = "/dev/sda";
         type = "disk";
         content = {
           type = "gpt";

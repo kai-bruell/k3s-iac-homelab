@@ -1,9 +1,9 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Boot (BIOS/GRUB – kompatibel mit Proxmox BIOS-Clone-Workflow)
+  # Boot (BIOS/GRUB)
+  # device wird von disko automatisch gesetzt (EF02-Partition in disko.nix)
   boot.loader.grub.enable = true;
-  boot.loader.grub.device = "/dev/vda";
 
   # Locale und Zeitzone
   time.timeZone = "Europe/Berlin";

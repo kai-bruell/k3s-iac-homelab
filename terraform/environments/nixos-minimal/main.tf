@@ -30,15 +30,13 @@ module "nixos_vm" {
   node_name             = var.proxmox_node
   vm_id                 = var.vm_id
   bootstrap_template_id = var.bootstrap_template_id
-  datastore_id          = var.datastore_id
   network_bridge        = var.network_bridge
 
   # VM Specs
-  vm_name  = var.vm_name
-  vcpu     = var.vcpu
-  sockets  = var.sockets
-  memory   = var.memory
-  disk_size = var.disk_size
+  vm_name = var.vm_name
+  vcpu    = var.vcpu
+  sockets = var.sockets
+  memory  = var.memory
 
   # SSH
   ssh_public_keys      = var.ssh_public_keys

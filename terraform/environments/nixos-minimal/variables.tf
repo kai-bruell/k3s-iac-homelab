@@ -41,12 +41,6 @@ variable "bootstrap_template_id" {
   default     = 9000
 }
 
-variable "datastore_id" {
-  description = "Proxmox Datastore fuer VM Disks (z.B. local-zfs)"
-  type        = string
-  default     = "local-zfs"
-}
-
 variable "network_bridge" {
   description = "Proxmox Network Bridge (z.B. vmbr0)"
   type        = string
@@ -75,12 +69,6 @@ variable "memory" {
   description = "RAM in MB"
   type        = number
   default     = 2048
-}
-
-variable "disk_size" {
-  description = "Disk Groesse in GB"
-  type        = number
-  default     = 20
 }
 
 # --- SSH ---

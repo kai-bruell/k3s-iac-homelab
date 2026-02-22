@@ -26,4 +26,8 @@
   boot.initrd.kernelModules  = [ ];
   boot.kernelModules         = [ ];
   boot.extraModulePackages   = [ ];
+
+  # Partition und Filesystem beim Boot automatisch auf Disk-Groesse erweitern.
+  # Ermoeglicht: VM stoppen -> qm resize <id> scsi0 <size>G -> starten -> fertig.
+  boot.growPartition = true;
 }
