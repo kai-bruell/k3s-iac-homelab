@@ -41,6 +41,12 @@ variable "bootstrap_template_id" {
   default     = 9000
 }
 
+variable "snippet_datastore_id" {
+  description = "Proxmox Datastore fuer cloud-init Snippets (muss Snippet-Content aktiviert haben)"
+  type        = string
+  default     = "local"
+}
+
 variable "network_bridge" {
   description = "Proxmox Network Bridge (z.B. vmbr0)"
   type        = string

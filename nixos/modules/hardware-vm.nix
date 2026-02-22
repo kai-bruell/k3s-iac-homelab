@@ -18,7 +18,7 @@
     "xhci_pci"
     "virtio_pci"
     "virtio_scsi"
-    "virtio_blk" # fuer /dev/vda (virtio0 disk interface)
+    "virtio_blk"
     "sd_mod"
     "sr_mod"
   ];

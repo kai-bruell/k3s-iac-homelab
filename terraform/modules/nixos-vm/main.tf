@@ -12,17 +12,14 @@ terraform {
   }
 }
 
-# --- cloud-init user-data: qemu-guest-agent installieren ---
+# --- cloud-init user-data ---
 #
-# Vorbedingung: Snippets auf Proxmox local Storage aktivieren (einmalig):
+# Vorbedingung: Snippets auf Proxmox Storage aktivieren (einmalig):
 #   pvesm set local --content snippets,iso,vztmpl,backup
-#
-# Warum: Standard cloud-init Images (Debian, Ubuntu) haben qemu-guest-agent
-# nicht vorinstalliert. Proxmox braucht ihn um die VM-IP abzufragen.
 
 resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
   content_type = "snippets"
-  datastore_id = "local"
+  datastore_id = var.snippet_datastore_id
   node_name    = var.node_name
 
   source_raw {
@@ -122,7 +119,7 @@ locals {
 # Was nixos-anywhere macht:
 #   1. Laedt kexec-Tarball auf die Bootstrap-VM
 #   2. Fuehrt kexec aus: VM bootet in NixOS-Installer (kein Reboot der Hardware)
-#   3. Fuehrt disko aus: partitioniert /dev/vda deklarativ (aus Flake)
+#   3. Fuehrt disko aus: partitioniert /dev/sda deklarativ (aus Flake)
 #   4. Installiert NixOS via nixos-install (Build auf der VM, kein lokales nix build)
 #   5. Reboot: VM startet mit finalem NixOS und statischer IP aus dem Flake
 #
