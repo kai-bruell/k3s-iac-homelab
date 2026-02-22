@@ -1,0 +1,38 @@
+FROM docker.io/library/alpine:latest
+
+LABEL com.github.containers.toolbox="true" \
+      name="devbox" \
+      version="1.0"
+
+# Install tools required by distrobox + Nix dependencies
+RUN apk add --no-cache \
+    bash coreutils curl git sudo shadow \
+    grep sed gawk findutils procps-ng util-linux \
+    ncurses less openssh-client wget xz \
+    mandoc man-pages musl-locales \
+    ca-certificates
+
+# Create /etc/os-release entries distrobox expects
+RUN echo 'ID=alpine' >> /etc/os-release
+
+# Nix installieren (Determinate Systems, ohne Init-System)
+# Ergebnis: /nix/store ist ein echtes Verzeichnis – kein Symlink
+# sandbox=false: Linux-Namespace-Sandboxing funktioniert nicht in Containern
+RUN curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix \
+    | sh -s -- install linux \
+      --init none \
+      --no-confirm \
+      --extra-conf "sandbox = false"
+
+# nix-daemon beim Shell-Login im Hintergrund starten (kein systemd im Container)
+RUN printf '#!/bin/sh\npgrep -x nix-daemon >/dev/null 2>&1 || sudo /nix/var/nix/profiles/default/bin/nix-daemon &\n' \
+    > /etc/profile.d/nix-daemon.sh && \
+    chmod +x /etc/profile.d/nix-daemon.sh
+
+# Passwordless sudo fuer nix-daemon
+RUN echo 'ALL ALL=(root) NOPASSWD: /nix/var/nix/profiles/default/bin/nix-daemon' \
+    >> /etc/sudoers
+
+# Devbox installieren (erkennt system Nix automatisch, kein nix-portable mehr)
+RUN curl -fsSL https://get.jetify.com/devbox | bash -s -- -f && \
+    chmod +r /usr/local/bin/devbox
