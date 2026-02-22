@@ -12,6 +12,7 @@ proxmox_node     = "pve"
 vm_id                 = 200
 bootstrap_template_id = 9000 # Debian cloud-init Template (einmalig auf Proxmox erstellt)
                               # Disk-Groesse am Template setzen: qm resize 9000 scsi0 20G
+snippet_datastore_id  = "local" # Storage fuer cloud-init Snippets (muss snippets content-type haben)
 network_bridge        = "vmbr0"
 vm_name               = "nixos-minimal"
 vcpu                  = 2

@@ -8,7 +8,7 @@
 # WICHTIG: Die statische IP muss mit var.static_ip in terraform.tfvars uebereinstimmen,
 #          damit Terraform nach dem Deploy weiss, wie die VM erreichbar ist.
 
-{ modulesPath, ... }:
+{ ... }:
 
 {
   networking = {
