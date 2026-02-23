@@ -93,6 +93,11 @@ resource "proxmox_virtual_environment_vm" "vm" {
   # Serieller Port fuer Konsolen-Logging (qm terminal <vmid> auf Proxmox Host)
   serial_device {}
 
+  # VGA auf std setzen – Template-Default (serial0) wuerde noVNC/VNC-Konsole deaktivieren
+  vga {
+    type = "std"
+  }
+
   # QEMU Guest Agent: wird per cloud-init user-data installiert (s.o.)
   agent {
     enabled = true
