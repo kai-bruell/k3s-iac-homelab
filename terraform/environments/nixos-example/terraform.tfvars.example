@@ -14,19 +14,19 @@ bootstrap_template_id = 9000 # Debian cloud-init Template (einmalig auf Proxmox 
                               # Disk-Groesse am Template setzen: qm resize 9000 scsi0 20G
 snippet_datastore_id  = "local" # Storage fuer cloud-init Snippets (muss snippets content-type haben)
 network_bridge        = "vmbr0"
-vm_name               = "nixos-test"
+vm_name               = "nixos-example"
 vcpu                  = 2
 sockets               = 1
 memory                = 2048
 
 # --- SSH ---
-# Muss mit authorized_keys in nixos/hosts/nixos-test/default.nix uebereinstimmen
+# Muss mit authorized_keys in nixos/hosts/nixos-example/default.nix uebereinstimmen
 ssh_public_keys = [
   "ssh-ed25519 AAAA... user@host", # cat ~/.ssh/homelab-dev.pub
 ]
 ssh_private_key_path = "~/.ssh/homelab-dev"
 
 # --- NixOS ---
-# Pfad relativ zu terraform/environments/nixos-test/ (wo `tofu apply` ausgefuehrt wird)
-# Statische IP der VM wird in nixos/hosts/nixos-test/default.nix konfiguriert
-nixos_flake_ref = "../../../nixos#nixos-test"
+# Pfad relativ zu terraform/environments/nixos-example/ (wo `tofu apply` ausgefuehrt wird)
+# Statische IP der VM wird in nixos/hosts/nixos-example/default.nix konfiguriert
+nixos_flake_ref = "../../../nixos#nixos-example"

@@ -14,6 +14,6 @@ output "bootstrap_ip" {
 }
 
 output "ssh_hint" {
-  description = "SSH-Verbindung nach Deploy (IP in nixos/hosts/nixos-test/default.nix einsehen)"
+  description = "SSH-Verbindung nach Deploy (IP in nixos/hosts/nixos-example/default.nix einsehen)"
   value       = module.nixos_vm.ssh_hint
 }

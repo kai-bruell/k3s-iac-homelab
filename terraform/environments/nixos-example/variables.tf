@@ -56,7 +56,7 @@ variable "network_bridge" {
 variable "vm_name" {
   description = "Name der VM in Proxmox"
   type        = string
-  default     = "nixos-test"
+  default     = "nixos-example"
 }
 
 variable "vcpu" {
@@ -95,5 +95,5 @@ variable "ssh_private_key_path" {
 variable "nixos_flake_ref" {
   description = "Flake-Referenz fuer nixos-anywhere. Format: <pfad>#<nixosConfigurations-attr>. Pfad relativ zum Verzeichnis von `tofu apply`."
   type        = string
-  default     = "../../../nixos#nixos-test"
+  default     = "../../../nixos#nixos-example"
 }

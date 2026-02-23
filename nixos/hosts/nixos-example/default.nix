@@ -1,4 +1,4 @@
-# Host-spezifische Konfiguration: nixos-test
+# Host-spezifische Konfiguration: nixos-example
 #
 # Anpassen an die eigene Umgebung:
 #   - networking.hostName
@@ -12,7 +12,7 @@
 
 {
   networking = {
-    hostName = "nixos-test";
+    hostName = "nixos-example";
 
     # systemd-networkd statt legacy networking
     # Vorteil: Interface-Name wird per Glob gematcht – kein Hardcoding von enp6s18 o.ae.
