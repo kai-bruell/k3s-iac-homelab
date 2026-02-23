@@ -27,6 +27,10 @@
   boot.kernelModules         = [ ];
   boot.extraModulePackages   = [ ];
 
+  # Serielle Konsole: Output auf ttyS0 (Proxmox serial_device) + normales tty0
+  # Verbinden: qm terminal <vmid> (auf Proxmox Host)
+  # boot.kernelParams = [ "console=ttyS0,115200n8" "console=tty0" ];
+
   # Partition und Filesystem beim Boot automatisch auf Disk-Groesse erweitern.
   # Ermoeglicht: VM stoppen -> qm resize <id> scsi0 <size>G -> starten -> fertig.
   boot.growPartition = true;

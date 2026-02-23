@@ -90,6 +90,9 @@ resource "proxmox_virtual_environment_vm" "vm" {
     type = "l26"
   }
 
+  # Serieller Port fuer Konsolen-Logging (qm terminal <vmid> auf Proxmox Host)
+  serial_device {}
+
   # QEMU Guest Agent: wird per cloud-init user-data installiert (s.o.)
   agent {
     enabled = true
