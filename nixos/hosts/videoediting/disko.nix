@@ -1,11 +1,7 @@
-# Deklaratives Disk-Layout via disko
-# Ersetzt: packer/nixos-base/scripts/install-nixos.sh + nixos/modules/hardware-vm.nix fileSystems
+# Deklaratives Disk-Layout via disko – BIOS/GRUB
+# Layout: GPT | 1M BIOS-Boot-Partition (fuer GRUB) | Rest ext4 root
 #
 # Referenz: https://github.com/nix-community/disko
-#
-# Disk-Device: /dev/sda (scsi0 des Debian-Bootstrap-Templates, wird von nixos-anywhere
-# komplett ueberschrieben – kein separates virtio0-Disk noetig, kein Boot-Order-Problem)
-# Layout: GPT | 1M BIOS-Boot-Partition (fuer GRUB) | Rest ext4 root
 
 { ... }:
 

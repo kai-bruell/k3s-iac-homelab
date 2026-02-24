@@ -55,11 +55,19 @@ resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
 # nixos-anywhere verbindet sich per SSH auf dieses Bootstrap-Image,
 # bootet via kexec in den NixOS-Installer und installiert das finale System aus dem Flake.
 # NixOS ueberschreibt das geklonte Debian-Disk (/dev/sda) komplett via disko.
+#
+# WICHTIG – GPU-Passthrough (machine_type + hostpci):
+#   machine_type = "q35" ist Pflicht fuer PCIe-Passthrough (pcie=true).
+#   Das Bootstrap-Template muss nativ als q35 erstellt sein (sata1 fuer cloud-init,
+#   qemu-guest-agent vorinstalliert) – siehe proxmox-template/README.md.
 
 resource "proxmox_virtual_environment_vm" "vm" {
   name      = var.vm_name
   node_name = var.node_name
   vm_id     = var.vm_id
+
+  bios    = var.bios
+  machine = var.machine_type
 
   clone {
     vm_id = var.bootstrap_template_id
@@ -98,6 +106,35 @@ resource "proxmox_virtual_environment_vm" "vm" {
     type = "std"
   }
 
+  # EFI-Disk: nur bei bios=ovmf benoetigt
+  dynamic "efi_disk" {
+    for_each = var.efi_disk_datastore != null ? [var.efi_disk_datastore] : []
+    content {
+      datastore_id = efi_disk.value
+      file_format  = "raw"
+      type         = "4m"
+    }
+  }
+
+  # GPU-Passthrough: PCIe-Geraet direkt an VM durchreichen
+  #
+  # Funktionierende Konfiguration (GTX 760 / Kepler GK104, SeaBIOS, q35):
+  #   pcie    = true  -> korrekte PCIe-Praesentation (Pflicht fuer machine = "q35")
+  #   rombar  = true  -> vBIOS lesbar (sonst: Failed to allocate NvKmsKapiDevice)
+  #   xvga    = true  -> GPU als primaeres VGA: SeaBIOS fuehrt vBIOS-Option-ROM aus
+  #                      -> GPU wird initialisiert -> UUID lesbar -> nvidia-smi funktioniert
+  #                      (ohne xvga=true: UUID = ??, nvidia-smi: No devices were found)
+  dynamic "hostpci" {
+    for_each = var.hostpci_id != null ? [var.hostpci_id] : []
+    content {
+      device  = "hostpci0"
+      id      = hostpci.value
+      pcie    = true   # PCIe-Modus (erfordert machine = "q35")
+      rombar  = true   # vBIOS muss lesbar sein (sonst: Failed to allocate NvKmsKapiDevice)
+      xvga    = true   # GPU als primaeres VGA -> SeaBIOS fuehrt vBIOS-Option-ROM aus -> GPU wird initialisiert
+    }
+  }
+
   # QEMU Guest Agent: wird per cloud-init user-data installiert (s.o.)
   agent {
     enabled = true
@@ -111,6 +148,7 @@ resource "proxmox_virtual_environment_vm" "vm" {
       ipv4 { address = "dhcp" }
     }
   }
+
 }
 
 # --- Erste nicht-loopback IPv4 der VM ermitteln ---
