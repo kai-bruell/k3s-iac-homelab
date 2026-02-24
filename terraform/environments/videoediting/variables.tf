@@ -20,7 +20,7 @@ variable "proxmox_password" {
 variable "proxmox_insecure" {
   description = "TLS-Verifikation deaktivieren (nur fuer self-signed Zertifikate)"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "proxmox_node" {
@@ -121,6 +121,5 @@ variable "efi_disk_datastore" {
 variable "hostpci_id" {
   description = "Host-PCI-ID der GPU (z.B. '0000:81:00'). null = kein Passthrough."
   type        = string
-  default     = "0000:81:00"
 }
 
