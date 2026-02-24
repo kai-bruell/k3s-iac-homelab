@@ -42,6 +42,19 @@
         ];
       };
 
+      # Video-Editing-VM: NixOS mit Multimedia-Paketen (Kdenlive, FFmpeg, etc.)
+      # Deploy: tofu apply (via nixos-anywhere, kein Packer noetig)
+      videoediting = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          disko.nixosModules.disko
+          ./modules/base.nix
+          ./modules/hardware-vm.nix
+          ./hosts/videoediting/default.nix
+          ./hosts/videoediting/disko.nix
+        ];
+      };
+
     };
   };
 }

@@ -74,3 +74,30 @@ variable "nixos_flake_ref" {
   # Relativ zu terraform/environments/<env>/ -> nixos/
   default     = "../../../nixos#nixos-minimal"
 }
+
+# --- GPU Passthrough (optional) ---
+
+variable "bios" {
+  description = "BIOS-Typ: 'seabios' (Standard) oder 'ovmf' (UEFI, fuer GPU-Passthrough)"
+  type        = string
+  default     = "seabios"
+}
+
+variable "machine_type" {
+  description = "QEMU Machine-Typ (z.B. 'q35'). null = Template-Default."
+  type        = string
+  default     = null
+}
+
+variable "efi_disk_datastore" {
+  description = "Datastore fuer EFI-Disk (nur bei bios=ovmf benoetigt). null = keine EFI-Disk."
+  type        = string
+  default     = null
+}
+
+variable "hostpci_id" {
+  description = "Host-PCI-ID fuer GPU-Passthrough (z.B. '0000:81:00'). null = kein Passthrough."
+  type        = string
+  default     = null
+}
+
