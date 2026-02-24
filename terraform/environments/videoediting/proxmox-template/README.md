@@ -1,40 +1,42 @@
-# Proxmox Bootstrap-Template erstellen
+# Proxmox Bootstrap-Template erstellen (q35 / Ubuntu)
 
-Das Bootstrap-Template (VM 9000) ist eine **einmalige manuelle Einrichtung** auf dem Proxmox-Host.
-Es dient als Ausgangspunkt fuer alle NixOS-VMs: Terraform klont dieses Template, bootet es per
-cloud-init, und nixos-anywhere ueberschreibt es anschliessend vollstaendig mit NixOS.
+Das Bootstrap-Template (VM 9002) ist eine **einmalige manuelle Einrichtung** auf dem Proxmox-Host.
+Es dient als Ausgangspunkt fuer alle NixOS-VMs mit GPU-Passthrough: Terraform klont dieses Template,
+bootet es per cloud-init, und nixos-anywhere ueberschreibt es anschliessend vollstaendig mit NixOS.
+
+> **Warum Ubuntu statt Debian?** Ubuntu 24.04 Cloud Images enthalten qemu-guest-agent und cloud-init
+> vorinstalliert und aktiv – Debian genericcloud deaktiviert cloud-init nach dem ersten Boot ohne
+> Datasource, was den Terraform-Workflow blockiert.
+>
+> **Warum q35?** GPU-Passthrough mit `pcie=true` erfordert den q35 Machine-Typ. Das Template muss
+> daher nativ als q35 erstellt werden – ein nachtraeglicher Wechsel via Terraform wuerde cloud-init
+> brechen (q35 hat keinen IDE-Controller, Proxmox cloud-init nutzt standardmaessig ide2).
 
 ## Voraussetzungen
 
-- SSH-Zugang zum Proxmox-Host (z.B. `ssh root@192.168.178.10`)
+- SSH-Zugang zum Proxmox-Host
 - Internetzugang vom Proxmox-Host aus
 
 ---
 
-## Schritt 1: Debian Genericcloud Image herunterladen
+## Schritt 1: Ubuntu Cloud Image herunterladen
 
 ```bash
-# Auf dem Proxmox-Host ausfuehren
 cd /tmp
-
-# Aktuelles Debian 12 (Bookworm) genericcloud Image herunterladen
-wget https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-amd64.qcow2
+wget https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 ```
-
-> **Warum genericcloud?** Das Image enthaelt qemu-guest-agent und cloud-init vorinstalliert –
-> beides wird von Terraform (bpg/proxmox Provider) und nixos-anywhere benoetigt.
 
 ---
 
 ## Schritt 2: VM erstellen
 
 ```bash
-# VM mit ID 9000 erstellen
-qm create 9000 \
-  --name debian-cloud-init \
-  --memory 2048 \
+qm create 9002 \
+  --name ubuntu-2404-q35 \
+  --memory 1024 \
   --cores 2 \
   --net0 virtio,bridge=vmbr0 \
+  --machine q35 \
   --serial0 socket \
   --vga serial0 \
   --agent enabled=1 \
@@ -46,17 +48,14 @@ qm create 9000 \
 ## Schritt 3: Disk importieren und konfigurieren
 
 ```bash
-# Heruntergeladenes Image als Disk importieren (local-lvm anpassen falls noetig)
-qm importdisk 9000 /tmp/debian-12-genericcloud-amd64.qcow2 local-lvm
+qm importdisk 9002 /tmp/noble-server-cloudimg-amd64.img local-lvm
 
-# Importierte Disk als scsi0 einhaengen
-qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9000-disk-0
+qm set 9002 --scsihw virtio-scsi-pci --scsi0 local-lvm:vm-9002-disk-0
 
-# Disk-Groesse auf 20G erhoehen (wichtig: muss gross genug fuer NixOS sein)
-qm resize 9000 scsi0 20G
+# Disk-Groesse auf 40G erhoehen (20G reicht nicht fuer NixOS + NVIDIA-Treiber)
+qm resize 9002 scsi0 40G
 
-# Boot von scsi0
-qm set 9000 --boot c --bootdisk scsi0
+qm set 9002 --boot order=scsi0
 ```
 
 ---
@@ -64,12 +63,11 @@ qm set 9000 --boot c --bootdisk scsi0
 ## Schritt 4: Cloud-Init konfigurieren
 
 ```bash
-# Cloud-Init Drive hinzufuegen
-qm set 9000 --ide2 local-lvm:cloudinit
+# sata1 statt ide2 – q35 hat keinen IDE-Controller
+qm set 9002 --sata1 local-lvm:cloudinit
 
-# Cloud-Init Basis-Konfiguration (wird von Terraform pro VM ueberschrieben)
-qm set 9000 --ciuser root
-qm set 9000 --ipconfig0 ip=dhcp
+qm set 9002 --ciuser root
+qm set 9002 --ipconfig0 ip=dhcp
 ```
 
 ---
@@ -77,16 +75,16 @@ qm set 9000 --ipconfig0 ip=dhcp
 ## Schritt 5: In Template umwandeln
 
 ```bash
-# VM als Template markieren (kann danach nicht mehr gestartet werden)
-qm template 9000
+qm template 9002
 ```
 
 ---
 
 ## Ergebnis
 
-Template VM 9000 ist bereit. Terraform (bpg/proxmox Provider) klont dieses Template per
-`full_clone = true`, injiziert SSH-Keys und statische IP via cloud-init, und nixos-anywhere
-installiert NixOS auf der laufenden VM.
+Template VM 9002 ist bereit. Terraform klont dieses Template, injiziert SSH-Keys via cloud-init,
+und nixos-anywhere installiert NixOS auf der laufenden VM.
 
-Referenz: `terraform/modules/nixos-vm/main.tf`, Variable `bootstrap_template_id` (default: `9000`).
+`bootstrap_template_id = 9002` in `terraform/environments/videoediting/terraform.tfvars`.
+
+Referenz: `terraform/modules/nixos-vm/main.tf`.

@@ -97,3 +97,30 @@ variable "nixos_flake_ref" {
   type        = string
   default     = "../../../nixos#videoediting"
 }
+
+# --- GPU Passthrough ---
+
+variable "bios" {
+  description = "BIOS-Typ: 'seabios' (Standard) oder 'ovmf'"
+  type        = string
+  default     = "seabios"
+}
+
+variable "machine_type" {
+  description = "QEMU Machine-Typ. null = Template-Default."
+  type        = string
+  default     = null
+}
+
+variable "efi_disk_datastore" {
+  description = "Datastore fuer EFI-Disk. null = keine EFI-Disk."
+  type        = string
+  default     = null
+}
+
+variable "hostpci_id" {
+  description = "Host-PCI-ID der GPU (z.B. '0000:81:00'). null = kein Passthrough."
+  type        = string
+  default     = "0000:81:00"
+}
+

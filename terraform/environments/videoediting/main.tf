@@ -45,4 +45,10 @@ module "nixos_vm" {
 
   # NixOS Flake
   nixos_flake_ref = var.nixos_flake_ref
+
+  # GPU Passthrough
+  bios               = var.bios
+  machine_type       = var.machine_type
+  efi_disk_datastore = var.efi_disk_datastore
+  hostpci_id         = var.hostpci_id
 }
