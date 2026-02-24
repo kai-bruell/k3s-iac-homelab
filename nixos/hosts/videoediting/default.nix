@@ -46,6 +46,33 @@
     powerManagement.enable = false;
   };
 
+  # Sway (Wayland) – experimentell auf NVIDIA 470 Legacy
+  # modesetting ist deaktiviert -> WLR_NO_HARDWARE_CURSORS + --unsupported-gpu als Workaround
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true;
+    extraOptions = [ "--unsupported-gpu" ];
+  };
+
+  environment.sessionVariables = {
+    WLR_NO_HARDWARE_CURSORS = "1";
+    # Sway explizit auf NVIDIA-GBM zeigen (fallback wenn kein KMS)
+    WLR_RENDERER = "gles2";
+  };
+
+  environment.systemPackages = with pkgs; [
+    # Sway-Basis
+    swaylock
+    swayidle
+    swaybg
+    # Terminal
+    foot
+    # Status-Bar
+    waybar
+    # App-Launcher
+    dmenu
+  ];
+
   # SSH Public Keys fuer Root-Login
   users.users.root.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
