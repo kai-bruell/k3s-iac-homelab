@@ -1,6 +1,6 @@
 # Host-spezifische Konfiguration: videoediting
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   networking = {
@@ -29,7 +29,11 @@
   # Kernel-Param: efifb/vesafb deaktivieren damit NVIDIA den Framebuffer übernehmen kann
   boot.kernelParams = [ "video=efifb:off" "video=vesafb:off" ];
 
-  nixpkgs.config.allowUnfree = true;
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+    "nvidia-x11"
+    "nvidia-settings"
+    "nvidia-persistenced"
+  ];
   nixpkgs.config.nvidia.acceptLicense = true;
   services.xserver.videoDrivers = [ "nvidia" ];
   hardware.opengl.enable = true;

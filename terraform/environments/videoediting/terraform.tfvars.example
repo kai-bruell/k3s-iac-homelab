@@ -30,3 +30,10 @@ ssh_private_key_path = "~/.ssh/homelab-dev"
 # Pfad relativ zu terraform/environments/videoediting/ (wo `tofu apply` ausgefuehrt wird)
 # Statische IP der VM wird in nixos/hosts/videoediting/default.nix konfiguriert
 nixos_flake_ref = "../../../nixos#videoediting"
+
+# --- GPU Passthrough ---
+# lspci | grep -i nvidia -> PCI-Adresse ermitteln (z.B. 81:00.0 -> "0000:81:00")
+bios               = "seabios"
+machine_type       = "q35"
+efi_disk_datastore = null   # null = keine EFI-Disk (nur bei bios=ovmf benoetigt)
+hostpci_id         = "0000:81:00"
