@@ -71,7 +71,51 @@
     waybar
     # App-Launcher
     dmenu
+    rofi
+    # Tiling-Helper (via chezmoi sway config referenziert)
+    autotiling
+    # Tools
+    neovim
+    tmux
+    git
+    curl
+    # Dotfile-Management
+    chezmoi
   ];
+
+  # Zsh als Default-Shell fuer Root
+  programs.zsh.enable = true;
+  users.users.root.shell = pkgs.zsh;
+
+  # Chezmoi: Dotfiles beim ersten Boot automatisch anwenden
+  # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
+  systemd.services.chezmoi-apply = {
+    description = "Apply chezmoi dotfiles on first boot";
+    wantedBy    = [ "multi-user.target" ];
+    after       = [ "network-online.target" ];
+    wants       = [ "network-online.target" ];
+    unitConfig.ConditionPathExists = "!/root/.local/share/chezmoi/.git";
+    serviceConfig = {
+      Type            = "oneshot";
+      RemainAfterExit = true;
+    };
+    path   = with pkgs; [ chezmoi git curl bash zsh ];
+    script = ''
+      chezmoi init --apply \
+        --branch feat/nixos-videoediting \
+        https://github.com/kai-bruell/Chezmoi-Dotfiles
+    '';
+  };
+
+  # Auto-Login auf TTY1 + Sway automatisch starten
+  # loginShellInit fuer zsh (Root-Shell) – bash-Variante greift nicht mehr
+  services.getty.autologinUser = "root";
+  programs.zsh.loginShellInit = ''
+    if [ "$(tty)" = "/dev/tty1" ]; then
+      export WLR_RENDERER_ALLOW_SOFTWARE=1
+      exec dbus-run-session sway
+    fi
+  '';
 
   # SSH Public Keys fuer Root-Login
   users.users.root.openssh.authorizedKeys.keys = [
