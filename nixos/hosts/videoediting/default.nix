@@ -102,7 +102,6 @@
     path   = with pkgs; [ chezmoi git curl bash zsh ];
     script = ''
       chezmoi init --apply \
-        --branch feat/nixos-videoediting \
         https://github.com/kai-bruell/Chezmoi-Dotfiles
     '';
   };
