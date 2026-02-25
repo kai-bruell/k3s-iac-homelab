@@ -1,3 +1,6 @@
 [submodule "dotfiles"]
 	path = dotfiles
 	url = https://github.com/kai-bruell/Chezmoi-Dotfiles
+[submodule "distroboxes"]
+	path = distroboxes
+	url = https://github.com/kai-bruell/DistroBoxes
