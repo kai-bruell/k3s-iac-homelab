@@ -52,10 +52,14 @@
     enable = true;
     wrapperFeatures.gtk = true;
     extraOptions = [ "--unsupported-gpu" ];
-    extraConfig = ''
-      output Virtual-1 mode 1920x1080@60Hz scale 1
-    '';
   };
+
+  # Sway output config: FHD via wlr-randr nach Sway-Start setzen
+  # (programs.sway.extraConfig existiert nicht in 24.11, output-Direktive
+  #  in config.d setzt Mode zu frueh -> Blackscreen)
+  environment.etc."sway/config.d/99-output.conf".text = ''
+    exec_always wlr-randr --output Virtual-1 --mode 1920x1080@60 --scale 1
+  '';
 
   environment.sessionVariables = {
     WLR_NO_HARDWARE_CURSORS = "1";
@@ -92,6 +96,10 @@
     chezmoi
     # Distrobox + Container-Runtime
     distrobox
+    # Audio
+    pavucontrol
+    # Display-Management
+    wlr-randr
   ];
 
   # Zsh als Default-Shell fuer Root
@@ -157,6 +165,7 @@
     };
   };
 
+
   # Distrobox: alle Boxen beim ersten Boot installieren
   # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
   systemd.services.distrobox-install = {
@@ -175,6 +184,22 @@
       bash /root/DistroBoxes/install.sh
     '';
   };
+
+  # Audio: PipeWire mit PulseAudio-Kompatibilitaet (benoetigt fuer pavucontrol + Sunshine)
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable             = true;
+    alsa.enable        = true;
+    pulse.enable       = true;
+    wireplumber.enable = true;
+  };
+
+
+  # Fonts fuer Waybar (font-awesome Icons + Noto Sans Mono Text)
+  fonts.packages = with pkgs; [
+    font-awesome
+    noto-fonts
+  ];
 
   # SSH Public Keys fuer Root-Login
   users.users.root.openssh.authorizedKeys.keys = [
