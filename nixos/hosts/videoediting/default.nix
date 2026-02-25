@@ -54,17 +54,18 @@
     extraOptions = [ "--unsupported-gpu" ];
   };
 
-  # Sway output config: FHD via wlr-randr nach Sway-Start setzen
-  # (programs.sway.extraConfig existiert nicht in 24.11, output-Direktive
-  #  in config.d setzt Mode zu frueh -> Blackscreen)
+  # Sway output config: FHD via swaymsg setzen
+  # - wlr-randr --mode schlaegt mit pixman-Renderer fehl (kein DRM-Modeswitch)
+  # - nativer Sway output-Block klappt mit pixman (frueherer Blackscreen war gles2-spezifisch)
   environment.etc."sway/config.d/99-output.conf".text = ''
-    exec_always wlr-randr --output Virtual-1 --mode 1920x1080@60 --scale 1
+    output Virtual-1 resolution 1920x1080 position 0,0 scale 1
   '';
 
   environment.sessionVariables = {
     WLR_NO_HARDWARE_CURSORS = "1";
-    # Sway explizit auf NVIDIA-GBM zeigen (fallback wenn kein KMS)
-    WLR_RENDERER = "gles2";
+    # pixman: nativer CPU-Renderer fuer headless/virtuelles Display (kein EGL/OpenGL noetig)
+    # gles2 lief ueber llvmpipe (Software-Mesa) -> fehlende Frame-Sync -> Hover-Flickering
+    WLR_RENDERER = "pixman";
   };
 
   # Podman – Container-Backend fuer Distrobox
