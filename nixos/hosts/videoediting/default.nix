@@ -52,12 +52,21 @@
     enable = true;
     wrapperFeatures.gtk = true;
     extraOptions = [ "--unsupported-gpu" ];
+    extraConfig = ''
+      output Virtual-1 mode 1920x1080@60Hz scale 1
+    '';
   };
 
   environment.sessionVariables = {
     WLR_NO_HARDWARE_CURSORS = "1";
     # Sway explizit auf NVIDIA-GBM zeigen (fallback wenn kein KMS)
     WLR_RENDERER = "gles2";
+  };
+
+  # Podman – Container-Backend fuer Distrobox
+  virtualisation.podman = {
+    enable = true;
+    dockerCompat = false;
   };
 
   environment.systemPackages = with pkgs; [
@@ -81,6 +90,8 @@
     curl
     # Dotfile-Management
     chezmoi
+    # Distrobox + Container-Runtime
+    distrobox
   ];
 
   # Zsh als Default-Shell fuer Root
@@ -115,6 +126,55 @@
       exec dbus-run-session sway
     fi
   '';
+
+  # uinput – virtuelle Eingabegeraete fuer Sunshine (Maus/Tastatur-Forwarding)
+  hardware.uinput.enable = true;
+
+  # Sunshine – Desktop-Streaming Server (Moonlight-kompatibel)
+  # capSysAdmin: benoetigt fuer KMS/DRM-Capture (Wayland-Frame-Grab)
+  # openFirewall: TCP 47984-47990/48010, UDP 47998-48000/48002/48010
+  services.sunshine = {
+    enable      = true;
+    autoStart   = true;
+    capSysAdmin = true;
+    openFirewall = true;
+  };
+
+  # Sunshine laeuft als systemd-User-Service – braucht WAYLAND_DISPLAY
+  # Sway legt den Socket als root unter wayland-1 ab
+  systemd.user.services.sunshine.environment = {
+    WAYLAND_DISPLAY = "wayland-1";
+    XDG_RUNTIME_DIR = "/run/user/0";
+  };
+
+  # Avahi/mDNS – automatische Erkennung durch Moonlight im Netzwerk
+  services.avahi = {
+    enable   = true;
+    nssmdns4 = true;
+    publish = {
+      enable       = true;
+      userServices = true;
+    };
+  };
+
+  # Distrobox: alle Boxen beim ersten Boot installieren
+  # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
+  systemd.services.distrobox-install = {
+    description = "Install distroboxes on first boot";
+    wantedBy    = [ "multi-user.target" ];
+    after       = [ "network-online.target" "podman.socket" ];
+    wants       = [ "network-online.target" ];
+    unitConfig.ConditionPathExists = "!/root/DistroBoxes/.git";
+    serviceConfig = {
+      Type            = "oneshot";
+      RemainAfterExit = true;
+    };
+    path   = with pkgs; [ distrobox git bash podman gnused ];
+    script = ''
+      git clone https://github.com/kai-bruell/DistroBoxes /root/DistroBoxes
+      bash /root/DistroBoxes/install.sh
+    '';
+  };
 
   # SSH Public Keys fuer Root-Login
   users.users.root.openssh.authorizedKeys.keys = [
