@@ -103,9 +103,23 @@
     wlr-randr
   ];
 
-  # Zsh als Default-Shell fuer Root
+  # User 'user' – normaler Account statt root
+  users.users.user = {
+    isNormalUser = true;
+    shell        = pkgs.zsh;
+    # linger: user-Systemd-Instanz startet beim Boot (braucht /run/user/1000 fuer Podman rootless)
+    linger       = true;
+    extraGroups  = [ "wheel" "video" "input" "audio" "render" ];
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
+    ];
+  };
+
+  # Sudo ohne Passwort fuer wheel (Homelab)
+  security.sudo.wheelNeedsPassword = false;
+
+  # Zsh als Default-Shell
   programs.zsh.enable = true;
-  users.users.root.shell = pkgs.zsh;
 
   # Chezmoi: Dotfiles beim ersten Boot automatisch anwenden
   # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
@@ -114,10 +128,12 @@
     wantedBy    = [ "multi-user.target" ];
     after       = [ "network-online.target" ];
     wants       = [ "network-online.target" ];
-    unitConfig.ConditionPathExists = "!/root/.local/share/chezmoi/.git";
+    unitConfig.ConditionPathExists = "!/home/user/.local/share/chezmoi/.git";
     serviceConfig = {
       Type            = "oneshot";
       RemainAfterExit = true;
+      User            = "user";
+      Environment     = [ "HOME=/home/user" ];
     };
     path   = with pkgs; [ chezmoi git curl bash zsh ];
     script = ''
@@ -127,8 +143,7 @@
   };
 
   # Auto-Login auf TTY1 + Sway automatisch starten
-  # loginShellInit fuer zsh (Root-Shell) – bash-Variante greift nicht mehr
-  services.getty.autologinUser = "root";
+  services.getty.autologinUser = "user";
   programs.zsh.loginShellInit = ''
     if [ "$(tty)" = "/dev/tty1" ]; then
       export WLR_RENDERER_ALLOW_SOFTWARE=1
@@ -150,10 +165,10 @@
   };
 
   # Sunshine laeuft als systemd-User-Service – braucht WAYLAND_DISPLAY
-  # Sway legt den Socket als root unter wayland-1 ab
+  # Sway legt den Socket unter /run/user/1000/wayland-1 ab (user UID 1000)
   systemd.user.services.sunshine.environment = {
     WAYLAND_DISPLAY = "wayland-1";
-    XDG_RUNTIME_DIR = "/run/user/0";
+    XDG_RUNTIME_DIR = "/run/user/1000";
   };
 
   # Avahi/mDNS – automatische Erkennung durch Moonlight im Netzwerk
@@ -169,20 +184,29 @@
 
   # Distrobox: alle Boxen beim ersten Boot installieren
   # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
+  # Laeuft als 'user' mit rootless Podman (linger = true sichert /run/user/1000)
   systemd.services.distrobox-install = {
     description = "Install distroboxes on first boot";
     wantedBy    = [ "multi-user.target" ];
-    after       = [ "network-online.target" "podman.socket" ];
+    after       = [ "network-online.target" ];
     wants       = [ "network-online.target" ];
-    unitConfig.ConditionPathExists = "!/root/DistroBoxes/.git";
+    unitConfig.ConditionPathExists = "!/home/user/DistroBoxes/.git";
     serviceConfig = {
       Type            = "oneshot";
       RemainAfterExit = true;
+      User            = "user";
+      Environment     = [
+        "HOME=/home/user"
+        "XDG_RUNTIME_DIR=/run/user/1000"
+      ];
     };
     path   = with pkgs; [ distrobox git bash podman gnused ];
     script = ''
-      git clone https://github.com/kai-bruell/DistroBoxes /root/DistroBoxes
-      bash /root/DistroBoxes/install.sh
+      # newuidmap/newgidmap fuer rootless Podman liegen als setuid-Wrapper in /run/wrappers/bin
+      # (nicht im Nix-Store, deshalb explizit vorne einhängen)
+      export PATH="/run/wrappers/bin:$PATH"
+      git clone https://github.com/kai-bruell/DistroBoxes /home/user/DistroBoxes
+      bash /home/user/DistroBoxes/install.sh
     '';
   };
 
@@ -202,7 +226,7 @@
     noto-fonts
   ];
 
-  # SSH Public Keys fuer Root-Login
+  # SSH Public Keys: root-Zugang als Fallback behalten (base.nix: PermitRootLogin = prohibit-password)
   users.users.root.openssh.authorizedKeys.keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
   ];
