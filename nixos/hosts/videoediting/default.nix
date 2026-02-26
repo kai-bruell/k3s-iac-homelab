@@ -102,22 +102,23 @@
   services.sunshine = {
     enable      = true;
     autoStart   = true;
-    capSysAdmin = true;    # required for KMS/DRM frame capture without DRM master
+    capSysAdmin = true;
     openFirewall = true;   # TCP 47984-47990/48010, UDP 47998-48000/48002/48010
     settings = {
-      # KMS capture reads the virtio-gpu framebuffer (card0) directly via DRM.
-      # wlr-screencopy (wlr capture) requires EGL_EXT_image_dma_buf_import – not available
-      # here because NVIDIA's EGL is picked up instead of Mesa/virgl.
-      capture = "kms";
-      # Reduce tearing/flickering: cap encoder to display refresh rate.
-      # virtio-gpu has no hardware vsync; min_fps_factor keeps capture in sync.
-      min_fps_factor = "2";
+      # wlr-screencopy is vsync-synchronized → no tearing/flickering on motion.
+      # KMS reads the raw framebuffer without vsync, which caused the flickering.
+      capture = "wlr";
     };
   };
 
-  # Sunshine runs as a systemd user service; XDG_RUNTIME_DIR must be explicit.
+  # Sunshine runs as a systemd user service.
   systemd.user.services.sunshine.environment = {
     XDG_RUNTIME_DIR = "/run/user/1000";
+    WAYLAND_DISPLAY = "wayland-1";
+    # Force Mesa/virgl EGL instead of NVIDIA EGL for the wlr-screencopy DMA-BUF import.
+    # NVIDIA EGL lacks EGL_EXT_image_dma_buf_import for virtio-gpu buffers.
+    # The Mesa ICD JSON uses absolute nix-store paths, so no LD_LIBRARY_PATH needed.
+    __EGL_VENDOR_LIBRARY_DIRS = "${pkgs.mesa}/share/glvnd/egl_vendor.d";
   };
 
   # Avahi/mDNS: Moonlight clients auto-discover this host on the local network.
