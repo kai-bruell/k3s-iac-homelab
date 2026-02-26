@@ -102,18 +102,19 @@
   services.sunshine = {
     enable      = true;
     autoStart   = true;
-    capSysAdmin = true;    # required for KMS/DRM frame capture without DRM master
+    capSysAdmin = true;    # required for DRM/KMS access
     openFirewall = true;   # TCP 47984-47990/48010, UDP 47998-48000/48002/48010
     settings = {
-      # KMS capture reads the virtio-gpu framebuffer (card0) directly via DRM –
-      # no EGL or Wayland protocol required.
-      capture = "kms";
+      # wlr capture uses wlr-screencopy (Wayland protocol), which is vsync-synchronized.
+      # KMS reads the raw framebuffer without vsync → tearing/flickering on motion.
+      capture = "wlr";
     };
   };
 
-  # Sunshine runs as a systemd user service; XDG_RUNTIME_DIR must be explicit.
+  # Sunshine runs as a systemd user service; needs both runtime dir and Wayland socket.
   systemd.user.services.sunshine.environment = {
     XDG_RUNTIME_DIR = "/run/user/1000";
+    WAYLAND_DISPLAY = "wayland-1";  # socket Sway creates under XDG_RUNTIME_DIR
   };
 
   # Avahi/mDNS: Moonlight clients auto-discover this host on the local network.
