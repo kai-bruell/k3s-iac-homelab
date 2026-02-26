@@ -36,7 +36,7 @@
   ];
   nixpkgs.config.nvidia.acceptLicense = true;
   services.xserver.videoDrivers = [ "nvidia" ];
-  hardware.opengl.enable = true;
+  hardware.graphics.enable = true;
   hardware.nvidia = {
     package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
     # modesetting (nvidia-drm KMS) schlaegt auf Kepler/470 Legacy + Passthrough fehl:
@@ -66,6 +66,11 @@
     # pixman: nativer CPU-Renderer fuer headless/virtuelles Display (kein EGL/OpenGL noetig)
     # gles2 lief ueber llvmpipe (Software-Mesa) -> fehlende Frame-Sync -> Hover-Flickering
     WLR_RENDERER = "pixman";
+    # seatd explizit als libseat-Backend erzwingen (verhindert logind-Fallback -> DRM-Master korrekt)
+    LIBSEAT_BACKEND = "seatd";
+    # Wlroots auf virtio-gpu (card0) beschraenken: NVIDIA (card1) hat kein KMS/modesetting
+    # und kann nicht als DRM-Device geoeffnet werden
+    WLR_DRM_DEVICES = "/dev/dri/card0";
   };
 
   # Podman – Container-Backend fuer Distrobox
@@ -103,13 +108,20 @@
     wlr-randr
   ];
 
+  # seatd: verwaltet DRM-Master direkt fuer Wayland-Compositor (Sway)
+  # Noetig weil serial-getty auf ttyS0 eine logind-Session mit seat0 oeffnet
+  # und damit DRM-Master von der tty1-Session (Sway) wegnimmt.
+  # seatd umgeht logind-Session-Management und gibt DRM-Master direkt an Sway.
+  services.seatd.enable = true;
+
   # User 'user' – normaler Account statt root
   users.users.user = {
     isNormalUser = true;
     shell        = pkgs.zsh;
     # linger: user-Systemd-Instanz startet beim Boot (braucht /run/user/1000 fuer Podman rootless)
     linger       = true;
-    extraGroups  = [ "wheel" "video" "input" "audio" "render" ];
+    # seat: benoetigt fuer seatd-Socket-Zugriff (/run/seatd.sock)
+    extraGroups  = [ "wheel" "video" "input" "audio" "render" "seat" ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
     ];
@@ -120,6 +132,13 @@
 
   # Zsh als Default-Shell
   programs.zsh.enable = true;
+
+  # Stub .zshrc fuer 'user' anlegen damit zsh-newuser-install nicht beim ersten Login
+  # den Auto-Login/Sway-Start auf TTY1 blockiert.
+  # "f" = create if not exists -> wird von chezmoi-apply spaeter ueberschrieben.
+  systemd.tmpfiles.rules = [
+    "f /home/user/.zshrc 0644 user users - "
+  ];
 
   # Chezmoi: Dotfiles beim ersten Boot automatisch anwenden
   # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
@@ -147,7 +166,7 @@
   programs.zsh.loginShellInit = ''
     if [ "$(tty)" = "/dev/tty1" ]; then
       export WLR_RENDERER_ALLOW_SOFTWARE=1
-      exec dbus-run-session sway
+      exec dbus-run-session sway > /tmp/sway.log 2>&1
     fi
   '';
 
