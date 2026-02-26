@@ -33,6 +33,7 @@ resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
           ssh_authorized_keys: ${jsonencode(var.ssh_public_keys)}
       packages:
         - qemu-guest-agent
+        - zsh
       runcmd:
         - systemctl enable qemu-guest-agent
         - systemctl start qemu-guest-agent
@@ -101,9 +102,11 @@ resource "proxmox_virtual_environment_vm" "vm" {
   # Serieller Port fuer Konsolen-Logging (qm terminal <vmid> auf Proxmox Host)
   serial_device {}
 
-  # VGA auf std setzen – Template-Default (serial0) wuerde noVNC/VNC-Konsole deaktivieren
+  # VGA auf virtio setzen: vollstaendiges DRM/KMS inkl. Cursor-Support
+  # bochs/std fehlt drmModeSetCursor -> wlroots Legacy-Commit schlaegt fehl -> Blackscreen
+  # noVNC/VNC-Konsole bleibt aktiv (QEMU captured virtio-gpu framebuffer fuer VNC)
   vga {
-    type = "std"
+    type = "virtio"
   }
 
   # EFI-Disk: nur bei bios=ovmf benoetigt
@@ -180,6 +183,11 @@ resource "null_resource" "nixos_anywhere" {
   }
 
   provisioner "local-exec" {
+    # SHELL auf bash setzen: nixos-anywhere nutzt $SHELL fuer Remote-Befehle,
+    # der kexec-NixOS-Installer hat kein zsh
+    environment = {
+      SHELL = "/bin/bash"
+    }
     command = <<-EOT
       nixos-anywhere \
         --flake "${var.nixos_flake_ref}" \
