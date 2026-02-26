@@ -25,6 +25,10 @@
   # Kernel 6.6 LTS – Pflicht fuer NVIDIA 470 Legacy-Treiber (bricht ab Kernel 6.11)
   boot.kernelPackages = pkgs.linuxPackages_6_6;
 
+  # nvidia_uvm: CUDA Unified Virtual Memory – benoetigt fuer NVENC (Sunshine)
+  # Erstellt /dev/nvidia-uvm und /dev/nvidia-uvm-tools beim Boot
+  boot.kernelModules = [ "nvidia_uvm" ];
+
   # NVIDIA GTX 760 (Kepler GK104) via PCI-Passthrough
   # Kernel-Param: efifb/vesafb deaktivieren damit NVIDIA den Framebuffer übernehmen kann
   boot.kernelParams = [ "video=efifb:off" "video=vesafb:off" ];
@@ -63,9 +67,9 @@
 
   environment.sessionVariables = {
     WLR_NO_HARDWARE_CURSORS = "1";
-    # pixman: nativer CPU-Renderer fuer headless/virtuelles Display (kein EGL/OpenGL noetig)
-    # gles2 lief ueber llvmpipe (Software-Mesa) -> fehlende Frame-Sync -> Hover-Flickering
-    WLR_RENDERER = "pixman";
+    # Kein WLR_RENDERER=pixman mehr: virtio-gpu hat Mesa virgl (gles2) mit EGL + DMA-BUF Support.
+    # pixman war noetig fuer bochs-drm (kein EGL) -> Sunshine konnte nicht capturen (fehlende
+    # EGL_EXT_image_dma_buf_import). Mit virtio-gpu ist gles2 der richtige Renderer.
     # seatd explizit als libseat-Backend erzwingen (verhindert logind-Fallback -> DRM-Master korrekt)
     LIBSEAT_BACKEND = "seatd";
     # Wlroots auf virtio-gpu (card0) beschraenken: NVIDIA (card1) hat kein KMS/modesetting
@@ -98,6 +102,7 @@
     tmux
     git
     curl
+    jq
     # Dotfile-Management
     chezmoi
     # Distrobox + Container-Runtime
@@ -156,6 +161,15 @@
     };
     path   = with pkgs; [ chezmoi git curl bash zsh ];
     script = ''
+      # chezmoi Interpreter-Config vorerstellen:
+      # NixOS hat kein /bin/bash (nur /bin/sh) -> Shebang in run_-Scripts schlaegt fehl.
+      # Mit [interpreters.sh] nutzt chezmoi 'bash' aus PATH statt den Shebang direkt.
+      mkdir -p /home/user/.config/chezmoi
+      cat > /home/user/.config/chezmoi/chezmoi.toml <<EOF
+[interpreters.sh]
+  command = "bash"
+  args = []
+EOF
       chezmoi init --apply \
         https://github.com/kai-bruell/Chezmoi-Dotfiles
     '';
@@ -165,7 +179,6 @@
   services.getty.autologinUser = "user";
   programs.zsh.loginShellInit = ''
     if [ "$(tty)" = "/dev/tty1" ]; then
-      export WLR_RENDERER_ALLOW_SOFTWARE=1
       exec dbus-run-session sway > /tmp/sway.log 2>&1
     fi
   '';
@@ -181,13 +194,19 @@
     autoStart   = true;
     capSysAdmin = true;
     openFirewall = true;
+    # KMS: liest Framebuffer direkt via DRM – kein EGL, kein DMA-BUF noetig.
+    # capSysAdmin = true erlaubt DRM-Zugriff ohne DRM-Master.
+    # card0 = virtio-gpu (aktiver Output Virtual-1), card1 = NVIDIA (kein Output -> Sunshine ignoriert)
+    settings = {
+      capture = "kms";
+    };
   };
 
   # Sunshine laeuft als systemd-User-Service – braucht WAYLAND_DISPLAY
   # Sway legt den Socket unter /run/user/1000/wayland-1 ab (user UID 1000)
   systemd.user.services.sunshine.environment = {
-    WAYLAND_DISPLAY = "wayland-1";
     XDG_RUNTIME_DIR = "/run/user/1000";
+    # KMS-Capture benoetigt kein WAYLAND_DISPLAY (kein Wayland-Protokoll fuer Framegrab)
   };
 
   # Avahi/mDNS – automatische Erkennung durch Moonlight im Netzwerk
