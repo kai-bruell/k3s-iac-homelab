@@ -1,10 +1,9 @@
 # Host configuration: videoediting
 #
-# VM with PCI-passthrough NVIDIA GTX 760 (Kepler, 470 legacy driver).
-# Display: virtio-gpu (card0) running Sway/Wayland.
-# NVIDIA (card1): used exclusively for NVENC encoding via Sunshine – no display output.
+# VM with virtio-gpu display, running Sway/Wayland.
+# Sunshine game streaming with software (libx264) encoding.
 
-{ config, pkgs, lib, ... }:
+{ pkgs, ... }:
 
 {
   # --- Networking -----------------------------------------------------------
@@ -27,58 +26,24 @@
     };
   };
 
-  # --- Kernel ---------------------------------------------------------------
-
-  # Linux 6.6 LTS required: NVIDIA 470 legacy driver breaks on kernel >= 6.11.
-  boot.kernelPackages = pkgs.linuxPackages_6_6;
-
-  # nvidia_uvm: CUDA UVM module required for NVENC hardware encoding (Sunshine).
-  boot.kernelModules = [ "nvidia_uvm" ];
-
-  # Prevent the kernel from claiming the NVIDIA GPU's framebuffer before the
-  # 470 driver initialises it.
-  boot.kernelParams = [ "video=efifb:off" "video=vesafb:off" ];
-
-  # --- NVIDIA (PCI passthrough – encoding only) -----------------------------
-
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "nvidia-x11"
-    "nvidia-settings"
-    "nvidia-persistenced"
-  ];
-  nixpkgs.config.nvidia.acceptLicense = true;
-
-  services.xserver.videoDrivers = [ "nvidia" ];
-  hardware.graphics.enable = true;
-  hardware.nvidia = {
-    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
-    # KMS modesetting fails on Kepler + passthrough ("Failed to allocate NvKmsKapiDevice").
-    # Not needed here – NVIDIA is not the display adapter.
-    modesetting.enable    = false;
-    open                  = false;
-    powerManagement.enable = false;
-  };
-
   # --- Wayland / Sway -------------------------------------------------------
+
+  hardware.graphics.enable = true;
 
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
-    # Sway detects the NVIDIA GPU but modesetting is off; suppress the resulting error.
-    extraOptions = [ "--unsupported-gpu" ];
   };
 
-  # Restrict wlroots to virtio-gpu (card0). NVIDIA (card1) has no KMS/modesetting
-  # and cannot be opened as a DRM device.
   environment.sessionVariables = {
     WLR_NO_HARDWARE_CURSORS = "1";
-    WLR_DRM_DEVICES         = "/dev/dri/card0";
+    WLR_RENDERER = "pixman";  # force software renderer – fixes damage-tracking flicker on virtio-gpu
     # Force seatd as libseat backend so serial-getty (ttyS0) doesn't grab
     # DRM master via logind and break the tty1 Sway session.
     LIBSEAT_BACKEND = "seatd";
   };
 
-  # Set FHD resolution for the single virtual display.
+  # Configure the single virtual display.
   environment.etc."sway/config.d/99-output.conf".text = ''
     output Virtual-1 resolution 1920x1080 position 0,0 scale 1
   '';
@@ -105,23 +70,22 @@
     capSysAdmin = true;
     openFirewall = true;   # TCP 47984-47990/48010, UDP 47998-48000/48002/48010
     settings = {
-      # KMS capture reads the virtio-gpu framebuffer (card0) directly via DRM.
-      # wlr-screencopy would be preferable (vsync-synchronized) but requires EGL
-      # DMA-BUF import on the encoder GPU. With NVIDIA passthrough as encoder and
-      # virtio-gpu as display, Sunshine initialises EGL on NVIDIA which cannot import
-      # virtio-gpu DMA-BUFs → wlr capture fails. KMS works without EGL.
-      capture = "kms";
-      # NVENC and VAAPI both fail in this setup; Sunshine falls back to libx264.
-      # Default preset is ultrafast → heavy macroblocking on motion.
-      # fast+zerolatency gives significantly better quality at acceptable CPU cost.
+      # kms: reads raw KMS/DRM framebuffer. Previously caused flickering, but
+      # that was a compositor damage-tracking bug (now fixed via WLR_RENDERER=pixman).
+      # wlr capture requires EGL which is unavailable with the pixman renderer.
+      capture   = "kms";
+      # zerolatency: disables B-frames and lookahead → minimal encoding latency.
+      # qp=23: quality floor to prevent macroblocking spikes on motion transitions.
       sw_preset = "fast";
       sw_tune   = "zerolatency";
+      qp        = "18";
     };
   };
 
   # Sunshine runs as a systemd user service.
   systemd.user.services.sunshine.environment = {
-    XDG_RUNTIME_DIR = "/run/user/1000";
+    XDG_RUNTIME_DIR  = "/run/user/1000";
+    WAYLAND_DISPLAY  = "wayland-1";  # required for wlr-screencopy capture
   };
 
   # Avahi/mDNS: Moonlight clients auto-discover this host on the local network.
