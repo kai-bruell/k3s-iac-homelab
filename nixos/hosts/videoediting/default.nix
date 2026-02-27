@@ -111,6 +111,11 @@
       # virtio-gpu as display, Sunshine initialises EGL on NVIDIA which cannot import
       # virtio-gpu DMA-BUFs → wlr capture fails. KMS works without EGL.
       capture = "kms";
+      # NVENC and VAAPI both fail in this setup; Sunshine falls back to libx264.
+      # Default preset is ultrafast → heavy macroblocking on motion.
+      # fast+zerolatency gives significantly better quality at acceptable CPU cost.
+      sw_preset = "fast";
+      sw_tune   = "zerolatency";
     };
   };
 
