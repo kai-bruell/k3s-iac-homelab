@@ -21,6 +21,10 @@ provider "proxmox" {
   }
 }
 
+locals {
+  proxmox_ssh_host = regex("https?://([^:/]+)", var.proxmox_endpoint)[0]
+}
+
 # NixOS VM Modul
 # Flow: Bootstrap-VM (Debian cloud-init) -> nixos-anywhere -> NixOS aus Flake
 module "nixos_vm" {
@@ -31,6 +35,7 @@ module "nixos_vm" {
   vm_id                 = var.vm_id
   bootstrap_template_id = var.bootstrap_template_id
   snippet_datastore_id  = var.snippet_datastore_id
+  proxmox_ssh_host      = local.proxmox_ssh_host
   network_bridge        = var.network_bridge
 
   # VM Specs

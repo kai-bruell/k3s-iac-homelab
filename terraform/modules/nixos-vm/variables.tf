@@ -22,6 +22,11 @@ variable "snippet_datastore_id" {
   default     = "local"
 }
 
+variable "proxmox_ssh_host" {
+  description = "SSH-Hostname/IP des Proxmox-Hosts fuer den direkten Upload von cloud-init Snippets"
+  type        = string
+}
+
 variable "network_bridge" {
   description = "Proxmox Network Bridge"
   type        = string

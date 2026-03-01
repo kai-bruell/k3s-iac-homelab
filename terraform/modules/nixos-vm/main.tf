@@ -14,30 +14,38 @@ terraform {
 
 # --- cloud-init user-data ---
 #
+# Workaround: bpg/proxmox kann Snippet-Dateien nach Upload nicht via API lesen
+# (Proxmox-API-Limitierung fuer content_type=snippets). Daher direkter SSH-Upload.
+#
 # Vorbedingung: Snippets auf Proxmox Storage aktivieren (einmalig):
 #   pvesm set local --content snippets,iso,vztmpl,backup
 
-resource "proxmox_virtual_environment_file" "cloud_init_user_data" {
-  content_type = "snippets"
-  datastore_id = var.snippet_datastore_id
-  node_name    = var.node_name
+locals {
+  cloud_init_file_name = "nixos-bootstrap-${var.vm_name}.yaml"
+  cloud_init_file_id   = "${var.snippet_datastore_id}:snippets/${local.cloud_init_file_name}"
+  cloud_init_content = join("\n", [
+    "#cloud-config",
+    "users:",
+    "  - name: root",
+    "    ssh_authorized_keys: ${jsonencode(var.ssh_public_keys)}",
+    "packages:",
+    "  - qemu-guest-agent",
+    "  - zsh",
+    "runcmd:",
+    "  - systemctl enable qemu-guest-agent",
+    "  - systemctl start qemu-guest-agent",
+    ""
+  ])
+}
 
-  source_raw {
-    file_name = "nixos-bootstrap-${var.vm_name}.yaml"
-    # WICHTIG: user_data_file_id ueberschreibt Proxmox's eigene User-Data-Generierung.
-    # SSH-Keys und qemu-guest-agent muessen daher beide hier definiert werden.
-    data = <<-EOF
-      #cloud-config
-      users:
-        - name: root
-          ssh_authorized_keys: ${jsonencode(var.ssh_public_keys)}
-      packages:
-        - qemu-guest-agent
-        - zsh
-      runcmd:
-        - systemctl enable qemu-guest-agent
-        - systemctl start qemu-guest-agent
-      EOF
+resource "null_resource" "cloud_init_snippet" {
+  triggers = {
+    content   = local.cloud_init_content
+    file_name = local.cloud_init_file_name
+  }
+
+  provisioner "local-exec" {
+    command = "echo '${base64encode(local.cloud_init_content)}' | base64 -d | ssh -o StrictHostKeyChecking=no root@${var.proxmox_ssh_host} 'cat > /var/lib/vz/snippets/${local.cloud_init_file_name}'"
   }
 }
 
@@ -143,9 +151,11 @@ resource "proxmox_virtual_environment_vm" "vm" {
     enabled = true
   }
 
+  depends_on = [null_resource.cloud_init_snippet]
+
   # Cloud-init: user-data enthaelt SSH-Keys + qemu-guest-agent Installation
   initialization {
-    user_data_file_id = proxmox_virtual_environment_file.cloud_init_user_data.id
+    user_data_file_id = local.cloud_init_file_id
 
     ip_config {
       ipv4 { address = "dhcp" }

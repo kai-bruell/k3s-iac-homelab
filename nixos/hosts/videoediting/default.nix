@@ -158,6 +158,32 @@ EOF
     '';
   };
 
+  # --- Flatpak ------------------------------------------------------------------
+
+  services.flatpak.enable = true;
+
+  systemd.services.flatpak-flathub = {
+    description = "Add Flathub remote for Flatpak";
+    wantedBy    = [ "multi-user.target" ];
+    after       = [ "network-online.target" "flatpak.service" ];
+    wants       = [ "network-online.target" ];
+    unitConfig.ConditionPathExists = "!/var/lib/flatpak/repo/flathub.trustedkeys.gpg";
+    serviceConfig = {
+      Type            = "oneshot";
+      RemainAfterExit = true;
+    };
+    path   = with pkgs; [ flatpak ];
+    script = ''
+      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+    '';
+  };
+
+  xdg.portal = {
+    enable = true;
+    wlr.enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+  };
+
   # --- Containers (Distrobox) -----------------------------------------------
 
   virtualisation.podman = {
