@@ -144,9 +144,16 @@
       RemainAfterExit = true;
       User            = "user";
       Environment     = [ "HOME=/home/user" ];
+      TimeoutStartSec = "10min";
     };
     path   = with pkgs; [ chezmoi git curl bash zsh ];
     script = ''
+      # Wait until GitHub is actually reachable (DNS + internet, not just link-up).
+      until curl -sf --head --max-time 5 https://github.com > /dev/null 2>&1; do
+        echo "Waiting for internet connectivity..."
+        sleep 10
+      done
+
       # NixOS has no /bin/bash; tell chezmoi to use bash from PATH for run_ scripts.
       mkdir -p /home/user/.config/chezmoi
       cat > /home/user/.config/chezmoi/chezmoi.toml <<EOF
@@ -206,9 +213,16 @@ EOF
         "HOME=/home/user"
         "XDG_RUNTIME_DIR=/run/user/1000"
       ];
+      TimeoutStartSec = "30min";
     };
-    path   = with pkgs; [ distrobox git bash podman gnused ];
+    path   = with pkgs; [ distrobox git bash podman gnused curl ];
     script = ''
+      # Wait until GitHub is actually reachable (DNS + internet, not just link-up).
+      until curl -sf --head --max-time 5 https://github.com > /dev/null 2>&1; do
+        echo "Waiting for internet connectivity..."
+        sleep 10
+      done
+
       # newuidmap/newgidmap for rootless Podman are setuid wrappers in /run/wrappers/bin.
       export PATH="/run/wrappers/bin:$PATH"
       git clone https://github.com/kai-bruell/DistroBoxes /home/user/DistroBoxes
