@@ -10,9 +10,13 @@
       url = "github:nix-community/disko/latest";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Deklaratives Flatpak-Management (Remotes + Pakete in .nix definierbar)
+    # https://github.com/gmodena/nix-flatpak
+    nix-flatpak.url = "github:gmodena/nix-flatpak";
   };
 
-  outputs = { self, nixpkgs, disko }: {
+  outputs = { self, nixpkgs, disko, nix-flatpak }: {
     nixosConfigurations = {
 
       # Minimale NixOS-VM fuer Proxmox
@@ -48,6 +52,7 @@
         system = "x86_64-linux";
         modules = [
           disko.nixosModules.disko
+          nix-flatpak.nixosModules.nix-flatpak
           ./modules/base.nix
           ./modules/hardware-vm.nix
           ./hosts/videoediting/default.nix

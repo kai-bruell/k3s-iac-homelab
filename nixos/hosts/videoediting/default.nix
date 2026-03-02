@@ -167,22 +167,16 @@ EOF
 
   # --- Flatpak ------------------------------------------------------------------
 
-  services.flatpak.enable = true;
-
-  systemd.services.flatpak-flathub = {
-    description = "Add Flathub remote for Flatpak";
-    wantedBy    = [ "multi-user.target" ];
-    after       = [ "network-online.target" "flatpak.service" ];
-    wants       = [ "network-online.target" ];
-    unitConfig.ConditionPathExists = "!/var/lib/flatpak/repo/flathub.trustedkeys.gpg";
-    serviceConfig = {
-      Type            = "oneshot";
-      RemainAfterExit = true;
-    };
-    path   = with pkgs; [ flatpak ];
-    script = ''
-      flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-    '';
+  services.flatpak = {
+    enable  = true;
+    remotes = [
+      { name = "flathub"; location = "https://dl.flathub.org/repo/flathub.flatpakrepo"; }
+    ];
+    packages = [
+      { appId = "com.obsproject.Studio";            origin = "flathub"; }
+      { appId = "com.obsproject.Studio.Plugin.NDI"; origin = "flathub"; }
+      { appId = "org.videolan.VLC";                 origin = "flathub"; }
+    ];
   };
 
   xdg.portal = {
