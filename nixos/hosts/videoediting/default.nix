@@ -94,8 +94,19 @@
     nssmdns4 = true;
     publish  = {
       enable       = true;
-      userServices = true;
+      userServices = true;   # Sunshine service discovery
+      addresses    = true;   # NDI source discovery
     };
+  };
+
+  networking.firewall = {
+    enable = true;
+    # NDI Discovery (mDNS)
+    allowedUDPPorts = [ 5353 ];
+    # NDI Video Streams
+    allowedTCPPortRanges = [
+      { from = 5959; to = 5970; }
+    ];
   };
 
   # --- Audio ----------------------------------------------------------------
