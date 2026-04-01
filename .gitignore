@@ -9,6 +9,8 @@ devbox.lock
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+*.terraform.tfstate.lock.info
+
 
 # Ansible
 inventory.yml

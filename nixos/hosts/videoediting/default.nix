@@ -1,13 +1,19 @@
-# Host-spezifische Konfiguration: videoediting
+# Host configuration: videoediting
+#
+# VM with virtio-gpu display, running Sway/Wayland.
+# Sunshine game streaming with software (libx264) encoding.
 
-{ config, pkgs, lib, ... }:
+{ pkgs, ... }:
 
 {
-  networking = {
-    hostName = "videoediting";
+  # --- Networking -----------------------------------------------------------
 
+  networking = {
+    hostName  = "videoediting";
     useNetworkd = true;
-    useDHCP = false;
+    useDHCP   = false;
+    firewall.allowedTCPPorts = [ 1234 ];
+    firewall.allowedUDPPorts = [ 1234 ];
   };
 
   systemd.network = {
@@ -22,131 +28,124 @@
     };
   };
 
-  # Kernel 6.6 LTS – Pflicht fuer NVIDIA 470 Legacy-Treiber (bricht ab Kernel 6.11)
-  boot.kernelPackages = pkgs.linuxPackages_6_6;
+  # --- Wayland / Sway -------------------------------------------------------
 
-  # nvidia_uvm: CUDA Unified Virtual Memory – benoetigt fuer NVENC (Sunshine)
-  # Erstellt /dev/nvidia-uvm und /dev/nvidia-uvm-tools beim Boot
-  boot.kernelModules = [ "nvidia_uvm" ];
-
-  # NVIDIA GTX 760 (Kepler GK104) via PCI-Passthrough
-  # Kernel-Param: efifb/vesafb deaktivieren damit NVIDIA den Framebuffer übernehmen kann
-  boot.kernelParams = [ "video=efifb:off" "video=vesafb:off" ];
-
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-    "nvidia-x11"
-    "nvidia-settings"
-    "nvidia-persistenced"
-  ];
-  nixpkgs.config.nvidia.acceptLicense = true;
-  services.xserver.videoDrivers = [ "nvidia" ];
   hardware.graphics.enable = true;
-  hardware.nvidia = {
-    package = config.boot.kernelPackages.nvidiaPackages.legacy_470;
-    # modesetting (nvidia-drm KMS) schlaegt auf Kepler/470 Legacy + Passthrough fehl:
-    # "Failed to allocate NvKmsKapiDevice" -> deaktiviert
-    modesetting.enable = false;
-    open = false;
-    powerManagement.enable = false;
-  };
 
-  # Sway (Wayland) – experimentell auf NVIDIA 470 Legacy
-  # modesetting ist deaktiviert -> WLR_NO_HARDWARE_CURSORS + --unsupported-gpu als Workaround
   programs.sway = {
     enable = true;
     wrapperFeatures.gtk = true;
-    extraOptions = [ "--unsupported-gpu" ];
   };
 
-  # Sway output config: FHD via swaymsg setzen
-  # - wlr-randr --mode schlaegt mit pixman-Renderer fehl (kein DRM-Modeswitch)
-  # - nativer Sway output-Block klappt mit pixman (frueherer Blackscreen war gles2-spezifisch)
+  environment.sessionVariables = {
+    WLR_NO_HARDWARE_CURSORS = "1";
+    WLR_RENDERER = "pixman";  # force software renderer – fixes damage-tracking flicker on virtio-gpu
+    # Force seatd as libseat backend so serial-getty (ttyS0) doesn't grab
+    # DRM master via logind and break the tty1 Sway session.
+    LIBSEAT_BACKEND = "seatd";
+  };
+
+  # Configure the single virtual display.
   environment.etc."sway/config.d/99-output.conf".text = ''
     output Virtual-1 resolution 1920x1080 position 0,0 scale 1
   '';
 
-  environment.sessionVariables = {
-    WLR_NO_HARDWARE_CURSORS = "1";
-    # Kein WLR_RENDERER=pixman mehr: virtio-gpu hat Mesa virgl (gles2) mit EGL + DMA-BUF Support.
-    # pixman war noetig fuer bochs-drm (kein EGL) -> Sunshine konnte nicht capturen (fehlende
-    # EGL_EXT_image_dma_buf_import). Mit virtio-gpu ist gles2 der richtige Renderer.
-    # seatd explizit als libseat-Backend erzwingen (verhindert logind-Fallback -> DRM-Master korrekt)
-    LIBSEAT_BACKEND = "seatd";
-    # Wlroots auf virtio-gpu (card0) beschraenken: NVIDIA (card1) hat kein KMS/modesetting
-    # und kann nicht als DRM-Device geoeffnet werden
-    WLR_DRM_DEVICES = "/dev/dri/card0";
-  };
-
-  # Podman – Container-Backend fuer Distrobox
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = false;
-  };
-
-  environment.systemPackages = with pkgs; [
-    # Sway-Basis
-    swaylock
-    swayidle
-    swaybg
-    # Terminal
-    foot
-    # Status-Bar
-    waybar
-    # App-Launcher
-    dmenu
-    rofi
-    # Tiling-Helper (via chezmoi sway config referenziert)
-    autotiling
-    # Tools
-    neovim
-    tmux
-    git
-    curl
-    jq
-    # Dotfile-Management
-    chezmoi
-    # Distrobox + Container-Runtime
-    distrobox
-    # Audio
-    pavucontrol
-    # Display-Management
-    wlr-randr
-  ];
-
-  # seatd: verwaltet DRM-Master direkt fuer Wayland-Compositor (Sway)
-  # Noetig weil serial-getty auf ttyS0 eine logind-Session mit seat0 oeffnet
-  # und damit DRM-Master von der tty1-Session (Sway) wegnimmt.
-  # seatd umgeht logind-Session-Management und gibt DRM-Master direkt an Sway.
+  # seatd manages DRM master directly, bypassing logind session conflicts.
   services.seatd.enable = true;
 
-  # User 'user' – normaler Account statt root
+  # Auto-login on TTY1 and start Sway immediately.
+  services.getty.autologinUser = "user";
+  programs.zsh.loginShellInit = ''
+    if [ "$(tty)" = "/dev/tty1" ]; then
+      exec dbus-run-session sway > /tmp/sway.log 2>&1
+    fi
+  '';
+
+  # --- Sunshine (game streaming) --------------------------------------------
+
+  # uinput: virtual input devices for Sunshine keyboard/mouse forwarding.
+  hardware.uinput.enable = true;
+
+  services.sunshine = {
+    enable      = true;
+    autoStart   = true;
+    capSysAdmin = true;
+    openFirewall = true;   # TCP 47984-47990/48010, UDP 47998-48000/48002/48010
+    settings = {
+      # kms: reads raw KMS/DRM framebuffer. Previously caused flickering, but
+      # that was a compositor damage-tracking bug (now fixed via WLR_RENDERER=pixman).
+      # wlr capture requires EGL which is unavailable with the pixman renderer.
+      capture   = "kms";
+      # zerolatency: disables B-frames and lookahead → minimal encoding latency.
+      # qp=23: quality floor to prevent macroblocking spikes on motion transitions.
+      sw_preset = "fast";
+      sw_tune   = "zerolatency";
+      qp        = "18";
+    };
+  };
+
+  # Sunshine runs as a systemd user service.
+  systemd.user.services.sunshine.environment = {
+    XDG_RUNTIME_DIR  = "/run/user/1000";
+    WAYLAND_DISPLAY  = "wayland-1";  # required for wlr-screencopy capture
+  };
+
+  # Avahi/mDNS: Moonlight clients auto-discover this host on the local network.
+  services.avahi = {
+    enable   = true;
+    nssmdns4 = true;
+    publish  = {
+      enable       = true;
+      userServices = true;   # Sunshine service discovery
+      addresses    = true;   # NDI source discovery
+    };
+  };
+
+  networking.firewall = {
+    enable = true;
+    # NDI Discovery (mDNS)
+    allowedUDPPorts = [ 5353 ];
+    # NDI Video Streams
+    allowedTCPPortRanges = [
+      { from = 5959; to = 5970; }
+    ];
+  };
+
+  # --- Audio ----------------------------------------------------------------
+
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable             = true;
+    alsa.enable        = true;
+    pulse.enable       = true;   # PulseAudio compat for pavucontrol + Sunshine
+    wireplumber.enable = true;
+  };
+
+  # --- User, shell & dotfiles -----------------------------------------------
+
   users.users.user = {
     isNormalUser = true;
     shell        = pkgs.zsh;
-    # linger: user-Systemd-Instanz startet beim Boot (braucht /run/user/1000 fuer Podman rootless)
-    linger       = true;
-    # seat: benoetigt fuer seatd-Socket-Zugriff (/run/seatd.sock)
+    linger       = true;   # start systemd user instance at boot (needed for rootless Podman)
     extraGroups  = [ "wheel" "video" "input" "audio" "render" "seat" ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
     ];
   };
 
-  # Sudo ohne Passwort fuer wheel (Homelab)
-  security.sudo.wheelNeedsPassword = false;
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
+  ];
 
-  # Zsh als Default-Shell
+  security.sudo.wheelNeedsPassword = false;
   programs.zsh.enable = true;
 
-  # Stub .zshrc fuer 'user' anlegen damit zsh-newuser-install nicht beim ersten Login
-  # den Auto-Login/Sway-Start auf TTY1 blockiert.
-  # "f" = create if not exists -> wird von chezmoi-apply spaeter ueberschrieben.
+  # Stub .zshrc so zsh-newuser-install doesn't block auto-login/Sway start on TTY1.
   systemd.tmpfiles.rules = [
     "f /home/user/.zshrc 0644 user users - "
   ];
 
-  # Chezmoi: Dotfiles beim ersten Boot automatisch anwenden
-  # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
+  # Apply chezmoi dotfiles on first boot (skipped if repo already present).
   systemd.services.chezmoi-apply = {
     description = "Apply chezmoi dotfiles on first boot";
     wantedBy    = [ "multi-user.target" ];
@@ -158,71 +157,55 @@
       RemainAfterExit = true;
       User            = "user";
       Environment     = [ "HOME=/home/user" ];
+      TimeoutStartSec = "10min";
     };
     path   = with pkgs; [ chezmoi git curl bash zsh ];
     script = ''
-      # chezmoi Interpreter-Config vorerstellen:
-      # NixOS hat kein /bin/bash (nur /bin/sh) -> Shebang in run_-Scripts schlaegt fehl.
-      # Mit [interpreters.sh] nutzt chezmoi 'bash' aus PATH statt den Shebang direkt.
+      # Wait until GitHub is actually reachable (DNS + internet, not just link-up).
+      until curl -sf --head --max-time 5 https://github.com > /dev/null 2>&1; do
+        echo "Waiting for internet connectivity..."
+        sleep 10
+      done
+
+      # NixOS has no /bin/bash; tell chezmoi to use bash from PATH for run_ scripts.
       mkdir -p /home/user/.config/chezmoi
       cat > /home/user/.config/chezmoi/chezmoi.toml <<EOF
 [interpreters.sh]
   command = "bash"
   args = []
 EOF
-      chezmoi init --apply \
-        https://github.com/kai-bruell/Chezmoi-Dotfiles
+      chezmoi init --apply https://github.com/kai-bruell/Chezmoi-Dotfiles
     '';
   };
 
-  # Auto-Login auf TTY1 + Sway automatisch starten
-  services.getty.autologinUser = "user";
-  programs.zsh.loginShellInit = ''
-    if [ "$(tty)" = "/dev/tty1" ]; then
-      exec dbus-run-session sway > /tmp/sway.log 2>&1
-    fi
-  '';
+  # --- Flatpak ------------------------------------------------------------------
 
-  # uinput – virtuelle Eingabegeraete fuer Sunshine (Maus/Tastatur-Forwarding)
-  hardware.uinput.enable = true;
-
-  # Sunshine – Desktop-Streaming Server (Moonlight-kompatibel)
-  # capSysAdmin: benoetigt fuer KMS/DRM-Capture (Wayland-Frame-Grab)
-  # openFirewall: TCP 47984-47990/48010, UDP 47998-48000/48002/48010
-  services.sunshine = {
-    enable      = true;
-    autoStart   = true;
-    capSysAdmin = true;
-    openFirewall = true;
-    # KMS: liest Framebuffer direkt via DRM – kein EGL, kein DMA-BUF noetig.
-    # capSysAdmin = true erlaubt DRM-Zugriff ohne DRM-Master.
-    # card0 = virtio-gpu (aktiver Output Virtual-1), card1 = NVIDIA (kein Output -> Sunshine ignoriert)
-    settings = {
-      capture = "kms";
-    };
+  services.flatpak = {
+    enable  = true;
+    remotes = [
+      { name = "flathub"; location = "https://dl.flathub.org/repo/flathub.flatpakrepo"; }
+    ];
+    packages = [
+      { appId = "com.obsproject.Studio";            origin = "flathub"; }
+      { appId = "com.obsproject.Studio.Plugin.NDI"; origin = "flathub"; }
+      { appId = "org.videolan.VLC";                 origin = "flathub"; }
+    ];
   };
 
-  # Sunshine laeuft als systemd-User-Service – braucht WAYLAND_DISPLAY
-  # Sway legt den Socket unter /run/user/1000/wayland-1 ab (user UID 1000)
-  systemd.user.services.sunshine.environment = {
-    XDG_RUNTIME_DIR = "/run/user/1000";
-    # KMS-Capture benoetigt kein WAYLAND_DISPLAY (kein Wayland-Protokoll fuer Framegrab)
+  xdg.portal = {
+    enable = true;
+    wlr.enable = true;
+    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
   };
 
-  # Avahi/mDNS – automatische Erkennung durch Moonlight im Netzwerk
-  services.avahi = {
-    enable   = true;
-    nssmdns4 = true;
-    publish = {
-      enable       = true;
-      userServices = true;
-    };
+  # --- Containers (Distrobox) -----------------------------------------------
+
+  virtualisation.podman = {
+    enable       = true;
+    dockerCompat = false;
   };
 
-
-  # Distrobox: alle Boxen beim ersten Boot installieren
-  # Laeuft einmalig (ConditionPathExists verhindert Wiederholung)
-  # Laeuft als 'user' mit rootless Podman (linger = true sichert /run/user/1000)
+  # Clone and install all Distroboxes on first boot.
   systemd.services.distrobox-install = {
     description = "Install distroboxes on first boot";
     wantedBy    = [ "multi-user.target" ];
@@ -237,35 +220,47 @@ EOF
         "HOME=/home/user"
         "XDG_RUNTIME_DIR=/run/user/1000"
       ];
+      TimeoutStartSec = "30min";
     };
-    path   = with pkgs; [ distrobox git bash podman gnused ];
+    path   = with pkgs; [ distrobox git bash podman gnused curl ];
     script = ''
-      # newuidmap/newgidmap fuer rootless Podman liegen als setuid-Wrapper in /run/wrappers/bin
-      # (nicht im Nix-Store, deshalb explizit vorne einhängen)
+      # Wait until GitHub is actually reachable (DNS + internet, not just link-up).
+      until curl -sf --head --max-time 5 https://github.com > /dev/null 2>&1; do
+        echo "Waiting for internet connectivity..."
+        sleep 10
+      done
+
+      # newuidmap/newgidmap for rootless Podman are setuid wrappers in /run/wrappers/bin.
       export PATH="/run/wrappers/bin:$PATH"
       git clone https://github.com/kai-bruell/DistroBoxes /home/user/DistroBoxes
       bash /home/user/DistroBoxes/install.sh
     '';
   };
 
-  # Audio: PipeWire mit PulseAudio-Kompatibilitaet (benoetigt fuer pavucontrol + Sunshine)
-  security.rtkit.enable = true;
-  services.pipewire = {
-    enable             = true;
-    alsa.enable        = true;
-    pulse.enable       = true;
-    wireplumber.enable = true;
+  # --- NFS Mount ------------------------------------------------------------
+
+  boot.supportedFilesystems = [ "nfs" ];
+  services.rpcbind.enable = true;
+
+  fileSystems."/mnt/proxmox" = {
+    device  = "192.168.178.199:/mnt";
+    fsType  = "nfs";
+    options = [ "nfsvers=4" "soft" "timeo=15" "_netdev" "x-systemd.automount" ];
   };
 
+  # --- Packages & Fonts -----------------------------------------------------
 
-  # Fonts fuer Waybar (font-awesome Icons + Noto Sans Mono Text)
-  fonts.packages = with pkgs; [
-    font-awesome
-    noto-fonts
+  environment.systemPackages = with pkgs; [
+    # Sway ecosystem
+    swaylock swayidle swaybg autotiling waybar foot dmenu rofi wlr-randr
+    # Tools
+    neovim tmux git curl jq chezmoi distrobox ffmpeg
+    # Audio
+    pavucontrol
   ];
 
-  # SSH Public Keys: root-Zugang als Fallback behalten (base.nix: PermitRootLogin = prohibit-password)
-  users.users.root.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEgXJQOJSsWyqpeFuiWJmLX8WBQ69PkAbaBwQ2LiowP9 homelab"
+  fonts.packages = with pkgs; [
+    font-awesome  # Waybar icons
+    noto-fonts
   ];
 }

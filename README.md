@@ -1,79 +1,85 @@
 # k3s-iac-homelab
 
-Homelab infrastructure for k3s cluster on Flatcar Linux VMs using OpenTofu and GitOps.
+Homelab Infrastructure as Code: k3s cluster on Flatcar Linux, NixOS workstation VMs, dotfiles and Distrobox environments — all on Proxmox, managed with OpenTofu and GitOps.
+
+(WARNING: This Project is under heavy construction and refactoring) 
+
+This Project is documenting well enough how which tools are working conceptionally. I am planning to Build a new homelab repository from scratch again for better understanding.
+
 
 ## Stack
 
-- **OpenTofu** - Infrastructure as Code (open-source Terraform fork)
-- **libvirt/KVM** - Virtualization
-- **Flatcar Container Linux** - Minimal, immutable OS
+- **OpenTofu** - Infrastructure as Code (open-source Terraform)
+- **Proxmox** - Hypervisor for all VMs
+- **Flatcar Container Linux** - Minimal, immutable OS (k3s nodes)
+- **NixOS** - Declarative OS for standalone VMs (via Nix Flake)
 - **k3s** - Lightweight Kubernetes
-- **Butane/Ignition** - Declarative VM provisioning
+- **Butane/Ignition** - Declarative Flatcar VM provisioning
+- **nixos-anywhere + disko** - Fully automated NixOS VM deployment
 - **FluxCD** - GitOps continuous delivery
+- **Chezmoi** - Dotfile management (Sway, nvim, zsh, foot, waybar, tmux)
+- **Distrobox** - Declarative container environments (Arch Rolling)
 
 ## Structure
 
 ```
-homelab/
-├── butane-configs/      # VM provisioning (Ignition)
-│   ├── k3s-server/     # Control plane configuration
-│   └── k3s-agent/      # Worker node configuration
+.
+├── butane-configs/          # Flatcar VM provisioning (Ignition)
+│   ├── k3s-server/         # Control plane node
+│   └── k3s-agent/          # Worker node
+│
+├── nixos/                   # NixOS Flake (nixos-anywhere deployable)
+│   ├── modules/            # Shared modules (base, hardware-vm)
+│   └── hosts/
+│       ├── nixos-minimal/  # Minimal base template
+│       ├── nixos-example/  # Template for new hosts
+│       └── videoediting/   # Video editing workstation (Sway, Sunshine, Distrobox)
 │
 ├── terraform/
 │   ├── modules/
-│   │   ├── flatcar-vm/      # Reusable VM module
-│   │   └── k3s-cluster/     # k3s cluster orchestration
+│   │   ├── flatcar-vm/     # Reusable Flatcar/Proxmox VM module
+│   │   ├── k3s-cluster/    # k3s cluster orchestration
+│   │   └── nixos-vm/       # NixOS VM module (nixos-anywhere)
 │   └── environments/
-│       ├── development/     # Local testing
-│       ├── staging/         # Pre-production (planned)
-│       └── production/      # Live environment (planned)
+│       ├── development/    # k3s dev cluster
+│       ├── nixos-example/  # Example NixOS VM
+│       └── videoediting/   # Video editing VM
 │
-├── kubernetes/          # GitOps manifests (FluxCD)
-│   ├── flux-system/    # FluxCD bootstrap
-│   ├── clusters/       # Environment-specific configs
-│   ├── infrastructure/ # Base services (Traefik, etc.)
-│   └── apps/          # Applications
+├── kubernetes/              # GitOps manifests (FluxCD)
+│   ├── flux-system/        # FluxCD bootstrap
+│   ├── clusters/           # Environment-specific configs
+│   ├── infrastructure/     # Base services (Traefik, etc.)
+│   └── apps/              # Applications
 │
-└── docs/              # Documentation
+├── dotfiles/                # Chezmoi-managed configs (Sway, nvim, zsh, …)
+├── distroboxes/             # Declarative Distrobox environments
+├── scripts/                 # Helper scripts (Flux bootstrap, etc.)
+└── devbox-container/        # Podman-based dev environment container
 ```
-
-## Current Status
-
-- ✅ OpenTofu modules (flatcar-vm, k3s-cluster)
-- ✅ Development environment working
-- ✅ Storage pool architecture fixed
-- ✅ GitOps with FluxCD
-- ✅ Automated kubeconfig download
-- ⏳ Staging environment
-- ⏳ Production environment
-
-## Workflow
-
-**Trunk-Based Development**
-- Single `main` branch (always deployable)
-- Direct commits to main
-- Environments: dev → staging → production
 
 ## Quick Start
 
+### k3s Dev Cluster
+
 ```bash
-# Enter development environment
 devbox shell
 
-# Deploy development cluster
 cd terraform/environments/development
-tofu init
-tofu apply
+tofu init && tofu apply
 
-# Access cluster (kubeconfig automatically downloaded)
 export KUBECONFIG=~/.kube/k3s-dev-config
 kubectl get nodes
-
-# Verify FluxCD
-kubectl get kustomizations -A
-flux get sources git
 ```
 
-## Documentation
+### NixOS VMs
 
-See [docs/README.md](docs/README.md) for detailed documentation.
+```bash
+cd terraform/environments/videoediting   # or: nixos-example
+cp terraform.tfvars.example terraform.tfvars
+# edit with Proxmox credentials
+tofu init && tofu apply
+```
+
+The `nixos-vm` module bootstraps a Debian cloud-init VM, then uses
+`nixos-anywhere` to install NixOS from the Flake in `nixos/` — no pre-built template required.
+
